@@ -1,0 +1,18 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: message-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/messages_db
+    username: connecta
+    password: connecta
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC

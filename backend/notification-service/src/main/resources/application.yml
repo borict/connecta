@@ -1,0 +1,18 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: notification-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/notifications_db
+    username: connecta
+    password: connecta
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
