@@ -16,7 +16,7 @@ public record UserLimitedResponse(
                 user.getUsername(),
                 user.getDisplayName(),
                 user.getProfilePictureUrl(),
-                true
+                user.isPrivate()
         );
     }
 }
