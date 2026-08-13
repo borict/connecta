@@ -3,10 +3,13 @@ package connecta.user.security;
 import connecta.user.config.JwtProperties;
 import connecta.user.domain.Role;
 import connecta.user.domain.User;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Optional;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Component;
@@ -39,9 +42,20 @@ public class JwtService {
                 .compact();
     }
 
+    public Optional<AuthenticatedUser> parseAuthenticatedUser(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            UUID userId = UUID.fromString(claims.getSubject());
+            String username = claims.get(CLAIM_USERNAME, String.class);
+            Role role = Role.valueOf(claims.get(CLAIM_ROLE, String.class));
+            return Optional.of(new AuthenticatedUser(userId, username, role));
+        } catch (JwtException | IllegalArgumentException | NullPointerException ex) {
+            return Optional.empty();
+        }
+    }
+
     public UUID parseUserId(String token) {
-        String subject = parseClaims(token).getSubject();
-        return UUID.fromString(subject);
+        return UUID.fromString(parseClaims(token).getSubject());
     }
 
     public String parseUsername(String token) {
@@ -52,7 +66,7 @@ public class JwtService {
         return Role.valueOf(parseClaims(token).get(CLAIM_ROLE, String.class));
     }
 
-    private io.jsonwebtoken.Claims parseClaims(String token) {
+    private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
                 .build()

@@ -40,5 +40,12 @@ class JwtServiceTest {
         assertThat(jwtService.parseUserId(token)).isEqualTo(userId);
         assertThat(jwtService.parseUsername(token)).isEqualTo("tamara");
         assertThat(jwtService.parseRole(token)).isEqualTo(Role.USER);
+        assertThat(jwtService.parseAuthenticatedUser(token))
+                .hasValueSatisfying(authUser -> {
+                    assertThat(authUser.id()).isEqualTo(userId);
+                    assertThat(authUser.username()).isEqualTo("tamara");
+                    assertThat(authUser.role()).isEqualTo(Role.USER);
+                });
+        assertThat(jwtService.parseAuthenticatedUser("not-a-jwt")).isEmpty();
     }
 }

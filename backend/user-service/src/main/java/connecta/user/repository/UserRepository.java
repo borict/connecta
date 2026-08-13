@@ -30,10 +30,17 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("""
             SELECT u FROM User u
-            WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%'))
-               OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%'))
+            WHERE u.isActive = true
+              AND (
+                    LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%'))
+                 OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%'))
+              )
             """)
     Page<User> searchByUsernameOrDisplayName(@Param("q") String q, Pageable pageable);
 
-    List<User> findByIdIn(Collection<UUID> ids);
+    List<User> findByIdInAndIsActiveTrue(Collection<UUID> ids);
+
+    Optional<User> findByIdAndIsActiveTrue(UUID id);
+
+    Optional<User> findByUsernameIgnoreCaseAndIsActiveTrue(String username);
 }
