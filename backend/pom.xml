@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>rs.edu.connecta</groupId>
+    <groupId>connecta</groupId>
     <artifactId>connecta-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>

@@ -8,6 +8,7 @@ Web društvena mreža zasnovana na mikroservisnoj arhitekturi.
 - React + TypeScript (Vite)
 - PostgreSQL, Redis, Zipkin
 - Azure Service Bus (asinhroni eventi)
+- Azure Blob Storage (profilne i post slike)
 
 ## Struktura
 
@@ -116,6 +117,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 ## Napomene
 
 - `.env` se ne commituje. Koristi `.env.example` kao šablon.
-- Azure Service Bus nije u Docker Compose-u (cloud servis).
-- Trenutno je skeleton: servisi se dižu, poslovna logika se dodaje po fazama.
+- Azure Service Bus i Azure Blob Storage nisu u Docker Compose-u (cloud servisi).
+- Domen odluke (User model, admin, privatni profili, JWT headeri): [docs/domain-decisions.md](docs/domain-decisions.md).
+- Faza 1 u toku: User entity + Flyway + DTO-i; JWT / Gateway / admin endpointi slede.
 
