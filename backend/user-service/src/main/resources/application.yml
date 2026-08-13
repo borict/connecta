@@ -5,9 +5,9 @@ spring:
   application:
     name: user-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/users_db
-    username: connecta
-    password: connecta
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/users_db
+    username: ${POSTGRES_USER:connecta}
+    password: ${POSTGRES_PASSWORD:connecta}
   jpa:
     hibernate:
       ddl-auto: none
@@ -19,6 +19,20 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+connecta:
+  jwt:
+    secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  storage:
+    local:
+      base-dir: ${CONNECTA_STORAGE_DIR:./uploads}
+      # Files are served at /media/**; profile pictures land under /media/profile-pictures/...
+      public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8081/media}
 
 management:
   endpoints:

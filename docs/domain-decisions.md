@@ -44,8 +44,24 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 
 ## Profile picture
 
-- Client uploads multipart file; backend stores in Azure Blob; DB keeps URL only.
-- No manual URL entry. Missing picture → FE placeholder / initials.
+- Client uploads multipart file (`multipart/form-data`); no manual URL entry.
+- Now: local filesystem via `ProfilePictureStorage` (`CONNECTA_STORAGE_DIR`), served at `/media/**`.
+- Later: swap implementation for Azure Blob; DB still keeps only `profilePictureUrl`.
+- Register (`POST /api/auth/register`): optional part `profilePicture` + JSON part `data`.
+- Login: `POST /api/auth/login`.
+- Missing picture → FE placeholder / initials.
+
+## Account flags
+
+- `isActive=false` — deactivated / soft-deleted account (data kept for other services).
+- `isBanned=true` — admin ban; login rejected.
+- Admin later: ban, unban, deactivate, restore.
+
+## Gateway auth headers
+
+- Gateway validates JWT and sets `User-Id`, `Username`, `User-Role`.
+- Gateway must strip/overwrite any client-supplied `User-Id` / `Username` / `User-Role`
+  (and legacy `X-User-*` variants) before forwarding.
 
 ## Private profiles + Social Service
 

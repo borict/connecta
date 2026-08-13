@@ -41,3 +41,7 @@ hs_err_pid*
 
 # Docker / local volumes
 .docker-data/
+
+# Local uploads (profile pictures, etc.)
+uploads/
+backend/**/uploads/
