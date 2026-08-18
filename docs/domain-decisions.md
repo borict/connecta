@@ -33,14 +33,18 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 
 ## Admin (MVP)
 
-- FE route: `/admin` (ADMIN only).
-- Backend:
+- FE route: `/admin` (ADMIN only) — later.
+- Backend (ADMIN role required):
   - `GET /api/admin/users`
   - `GET /api/admin/users/{userId}`
   - `PATCH /api/admin/users/{userId}/ban`
   - `PATCH /api/admin/users/{userId}/unban`
+  - `PATCH /api/admin/users/{userId}/deactivate` (`isActive=false`)
+  - `PATCH /api/admin/users/{userId}/restore` (`isActive=true`)
 - Ban sets `isBanned=true` (profile retained). Unban clears it.
-- Login should reject banned (and inactive) users.
+- Admins cannot ban/deactivate themselves via admin API.
+- Seed admin (Flyway V2): username `admin`, password `Admin123!` — change outside local use.
+- Login rejects banned and inactive users.
 
 ## Profile picture
 
@@ -55,7 +59,7 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 
 - `isActive=false` — deactivated / soft-deleted account (data kept for other services).
 - `isBanned=true` — admin ban; login rejected.
-- Admin later: ban, unban, deactivate, restore.
+- Admin API: ban, unban, deactivate, restore.
 
 ## Gateway auth headers
 
