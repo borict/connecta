@@ -32,7 +32,7 @@ connecta:
     local:
       base-dir: ${CONNECTA_STORAGE_DIR:./uploads}
       # Files are served at /media/**; profile pictures land under /media/profile-pictures/...
-      public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8081/media}
+      public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8080/media}
 
 management:
   endpoints:

@@ -64,8 +64,11 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 ## Gateway auth headers
 
 - Gateway validates JWT and sets `User-Id`, `Username`, `User-Role`.
-- Gateway must strip/overwrite any client-supplied `User-Id` / `Username` / `User-Role`
+- Gateway strips/overwrites any client-supplied `User-Id` / `Username` / `User-Role`
   (and legacy `X-User-*` variants) before forwarding.
+- Public through gateway: `POST /api/auth/register`, `POST /api/auth/login`, `/media/**`, actuator health/info.
+- `/api/admin/**` requires JWT role `ADMIN` at the gateway (user-service also enforces).
+- Client entrypoint: `http://localhost:8080`
 
 ## Private profiles + Social Service
 

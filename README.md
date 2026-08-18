@@ -120,5 +120,6 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Azure Service Bus i Azure Blob Storage nisu u Docker Compose-u (cloud servisi).
 - Domen odluke (User model, admin, privatni profili, JWT headeri): [docs/domain-decisions.md](docs/domain-decisions.md).
 - Seed admin (User Service Flyway): username `admin`, password `Admin123!`.
-- Faza 1: auth + profil + errori + admin backend; Gateway / Swagger slede.
+- API entrypoint: Gateway `http://localhost:8080` (User Service still on `8081`).
+- Faza 1: auth + profil + errori + admin + Gateway; Swagger slede.
 
