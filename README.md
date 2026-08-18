@@ -29,7 +29,7 @@ docker-compose.yml
 | message-service      | 8084 |
 | notification-service | 8085 |
 | frontend (dev)       | 5173 |
-| postgres             | 5432 |
+| postgres             | 5433 |
 | redis                | 6379 |
 | zipkin               | 9411 |
 
@@ -121,5 +121,14 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Domen odluke (User model, admin, privatni profili, JWT headeri): [docs/domain-decisions.md](docs/domain-decisions.md).
 - Seed admin (User Service Flyway): username `admin`, password `Admin123!`.
 - API entrypoint: Gateway `http://localhost:8080` (User Service still on `8081`).
-- Faza 1: auth + profil + errori + admin + Gateway; Swagger slede.
+- Swagger (User Service): [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
+- Faza 1: User Service + Gateway + Swagger.
+
+### Smoke test (Faza 1)
+
+1. `docker compose up -d`
+2. Pokreni `user-service` i `api-gateway` (isti `JWT_SECRET`)
+3. Swagger: login kao `admin` / `Admin123!` → Authorize (Bearer token) → `GET /api/users/me`
+4. Preko Gateway-a: `POST http://localhost:8080/api/auth/login` pa `GET http://localhost:8080/api/users/me` sa tokenom
+
 

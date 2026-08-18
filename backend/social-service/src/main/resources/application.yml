@@ -5,7 +5,7 @@ spring:
   application:
     name: social-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/socials_db
+    url: jdbc:postgresql://localhost:5433/socials_db
     username: connecta
     password: connecta
   jpa:

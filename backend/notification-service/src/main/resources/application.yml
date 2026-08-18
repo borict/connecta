@@ -5,7 +5,7 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/notifications_db
+    url: jdbc:postgresql://localhost:5433/notifications_db
     username: connecta
     password: connecta
   jpa:

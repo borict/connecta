@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -46,12 +47,15 @@ public class GlobalExceptionHandler {
             MissingServletRequestPartException.class,
             MethodArgumentTypeMismatchException.class,
             HttpMessageNotReadableException.class,
-            MaxUploadSizeExceededException.class
+            MaxUploadSizeExceededException.class,
+            MultipartException.class
     })
     public ResponseEntity<ApiErrorResponse> handleBadRequest(Exception ex, HttpServletRequest request) {
         String message = ex.getMessage() != null ? ex.getMessage() : "Bad request";
         if (ex instanceof MaxUploadSizeExceededException) {
             message = "Uploaded file is too large";
+        } else if (ex instanceof MultipartException) {
+            message = "Invalid multipart request. For optional profilePicture, do not send an empty file part.";
         }
         return build(HttpStatus.BAD_REQUEST, message, request);
     }

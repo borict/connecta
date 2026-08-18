@@ -5,7 +5,7 @@ spring:
   application:
     name: post-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/posts_db
+    url: jdbc:postgresql://localhost:5433/posts_db
     username: connecta
     password: connecta
   jpa:

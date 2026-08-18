@@ -5,7 +5,7 @@ spring:
   application:
     name: message-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/messages_db
+    url: jdbc:postgresql://localhost:5433/messages_db
     username: connecta
     password: connecta
   jpa:
