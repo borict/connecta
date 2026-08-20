@@ -2,6 +2,7 @@ package connecta.post.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import connecta.post.config.OpenApiConfig;
 import connecta.post.dto.CreatePostRequest;
 import connecta.post.dto.PageResponse;
 import connecta.post.dto.PostResponse;
@@ -11,6 +12,9 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -32,7 +36,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/posts")
-@Tag(name = "Posts")
+@Tag(name = "Posts", description = "Create, read and author-only delete")
+@SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
 public class PostController {
 
     private final PostService postService;
@@ -56,6 +61,11 @@ public class PostController {
                     and do NOT check "Send empty value".
                     """
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Created"),
+            @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse")))
+    })
     @RequestBody(
             content = @Content(
                     mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -74,6 +84,11 @@ public class PostController {
     }
 
     @Operation(summary = "List posts by author ids", description = "Comma-separated UUIDs, max 100. Intended for feed aggregation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "400", description = "Invalid ids", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse")))
+    })
     @GetMapping("/by-authors")
     public PageResponse<PostResponse> listByAuthors(
             @RequestParam("ids") String ids,
@@ -84,6 +99,10 @@ public class PostController {
     }
 
     @Operation(summary = "List posts by user")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse")))
+    })
     @GetMapping("/user/{userId}")
     public PageResponse<PostResponse> listByUser(
             @PathVariable UUID userId,
@@ -94,12 +113,23 @@ public class PostController {
     }
 
     @Operation(summary = "Get a post by id")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))),
+            @ApiResponse(responseCode = "404", description = "Not found", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse")))
+    })
     @GetMapping("/{postId}")
     public PostResponse getById(@PathVariable UUID postId) {
         return postService.getById(postId);
     }
 
     @Operation(summary = "Delete a post", description = "Only the author can delete the post.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "No Content"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))),
+            @ApiResponse(responseCode = "403", description = "Not the author", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))),
+            @ApiResponse(responseCode = "404", description = "Not found", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse")))
+    })
     @DeleteMapping("/{postId}")
     public ResponseEntity<Void> delete(@PathVariable UUID postId) {
         postService.delete(postId);

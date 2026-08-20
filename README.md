@@ -118,11 +118,13 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 
 - `.env` se ne commituje. Koristi `.env.example` kao šablon.
 - Azure Service Bus i Azure Blob Storage nisu u Docker Compose-u (cloud servisi).
-- Domen odluke (User model, admin, privatni profili, JWT headeri): [docs/domain-decisions.md](docs/domain-decisions.md).
+- Domen odluke (User model, admin, privatni profili, JWT headeri, post slike): [docs/domain-decisions.md](docs/domain-decisions.md).
 - Seed admin (User Service Flyway): username `admin`, password `Admin123!`.
-- API entrypoint: Gateway `http://localhost:8080` (User Service still on `8081`).
+- API entrypoint: Gateway `http://localhost:8080` (User Service `8081`, Post Service `8082`).
 - Swagger (User Service): [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
+- Swagger (Post Service): [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html)
 - Faza 1: User Service + Gateway + Swagger.
+- Faza 2: Post Service (CRUD, likes, comments, local post images, User Service enrichment, Azure Service Bus publisher).
 
 ### Smoke test (Faza 1)
 
@@ -130,5 +132,18 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 2. Pokreni `user-service` i `api-gateway` (isti `JWT_SECRET`)
 3. Swagger: login kao `admin` / `Admin123!` → Authorize (Bearer token) → `GET /api/users/me`
 4. Preko Gateway-a: `POST http://localhost:8080/api/auth/login` pa `GET http://localhost:8080/api/users/me` sa tokenom
+
+### Smoke test (Faza 2)
+
+1. `docker compose up -d` (Postgres host port **5433**)
+2. Pokreni `user-service`, `post-service` i `api-gateway` (isti `JWT_SECRET`)
+3. User Swagger: login (`admin` / `Admin123!` ili registrovani nalog) → kopiraj token
+4. Post Swagger → **Authorize** (Bearer) → `POST /api/posts`: JSON u `data` (npr. `{ "content": "Hello Connecta!" }`); sliku ostavi praznu i **ne** štikliraj “Send empty value”
+5. `GET /api/posts/{postId}` — `authorUsername` popunjen ako User Service radi; inače `null` uz `authorId`
+6. Like: `POST .../likes` dva puta → isti `count`; unlike `DELETE .../likes` → 204 i kad nije lajkovano
+7. Comment: `POST .../comments` → list → `DELETE /api/posts/comments/{commentId}` (samo autor komentara)
+8. Delete post: drugi user → 403; autor → 204
+9. Gateway: `http://localhost:8080/api/posts/**` sa Bearer tokenom; slika na `http://localhost:8080/media/posts/...`
+10. Bez JWT-a → 401 `ApiErrorResponse`. Azure eventi (`POST_LIKED` / `POST_COMMENTED`) se ne proveravaju ručno dok Notification Service ne postoji.
 
 

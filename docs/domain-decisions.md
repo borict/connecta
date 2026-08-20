@@ -1,4 +1,4 @@
-# Connecta — domain decisions (User / Auth / Social)
+# Connecta — domain decisions (User / Auth / Social / Posts)
 
 Locked for implementation. Private master plan PDF may lag; this file is the repo source of truth for these rules.
 
@@ -54,6 +54,15 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 - Register (`POST /api/auth/register`): optional part `profilePicture` + JSON part `data`.
 - Login: `POST /api/auth/login`.
 - Missing picture → FE placeholder / initials.
+
+## Post image
+
+- Client uploads multipart file on create (`data` JSON `{ "content" }` + optional `image`); no manual URL entry.
+- Now: local filesystem via `PostImageStorage` (`CONNECTA_STORAGE_DIR/posts/`), served at `/media/posts/**`.
+- Gateway routes `/media/posts/**` to Post Service **before** `/media/**` to User Service.
+- Later: swap implementation for Azure Blob; DB still keeps only `imageUrl`.
+- One optional image per post; JPEG / PNG / WebP; max 5MB.
+- Missing image → `imageUrl` is null. In Swagger, do not send an empty file part.
 
 ## Account flags
 
