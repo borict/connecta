@@ -42,6 +42,10 @@ connecta:
       public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8080/media}
   user-service:
     url: ${USER_SERVICE_URL:http://localhost:8081}
+  azure:
+    servicebus:
+      connection-string: ${AZURE_SERVICEBUS_CONNECTION_STRING:}
+      topic: ${AZURE_SERVICEBUS_TOPIC:connecta-events}
 
 resilience4j:
   circuitbreaker:

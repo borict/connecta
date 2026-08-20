@@ -4,16 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import connecta.post.domain.Comment;
+import connecta.post.domain.Post;
 import connecta.post.domain.Role;
 import connecta.post.dto.AuthorSummary;
 import connecta.post.dto.CommentResponse;
 import connecta.post.dto.CreateCommentRequest;
+import connecta.post.messaging.PostCommentedEvent;
+import connecta.post.messaging.PostEventPublisher;
 import connecta.post.repository.CommentRepository;
 import connecta.post.repository.PostRepository;
 import connecta.post.security.AuthenticatedUser;
@@ -46,15 +50,20 @@ class CommentServiceTest {
     @Mock
     private AuthorEnrichmentService authorEnrichment;
 
+    @Mock
+    private PostEventPublisher eventPublisher;
+
     private CommentService commentService;
     private UUID userId;
     private UUID postId;
+    private Post otherUsersPost;
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentService(postRepository, commentRepository, authorEnrichment);
+        commentService = new CommentService(postRepository, commentRepository, authorEnrichment, eventPublisher);
         userId = UUID.randomUUID();
         postId = UUID.randomUUID();
+        otherUsersPost = new Post(postId, UUID.randomUUID(), "Hello");
         AuthenticatedUser user = new AuthenticatedUser(userId, "tamara", Role.USER);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities())
@@ -78,7 +87,7 @@ class CommentServiceTest {
 
     @Test
     void create_missingPost_returnsNotFound() {
-        when(postRepository.existsById(postId)).thenReturn(false);
+        when(postRepository.findById(postId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> commentService.create(postId, new CreateCommentRequest("Nice")))
                 .isInstanceOf(ResponseStatusException.class)
@@ -89,7 +98,7 @@ class CommentServiceTest {
 
     @Test
     void create_persistsTrimmedContent() {
-        when(postRepository.existsById(postId)).thenReturn(true);
+        when(postRepository.findById(postId)).thenReturn(Optional.of(otherUsersPost));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CommentResponse response = commentService.create(postId, new CreateCommentRequest("  Nice post!  "));
@@ -100,6 +109,7 @@ class CommentServiceTest {
         assertThat(saved.getPostId()).isEqualTo(postId);
         assertThat(saved.getAuthorId()).isEqualTo(userId);
         assertThat(saved.getContent()).isEqualTo("Nice post!");
+        verify(eventPublisher).publishPostCommented(any(PostCommentedEvent.class));
         assertThat(response.content()).isEqualTo("Nice post!");
         assertThat(response.authorId()).isEqualTo(userId);
         assertThat(response.authorUsername()).isNull();
@@ -107,7 +117,7 @@ class CommentServiceTest {
 
     @Test
     void create_enrichesAuthorWhenUserServiceResponds() {
-        when(postRepository.existsById(postId)).thenReturn(true);
+        when(postRepository.findById(postId)).thenReturn(Optional.of(otherUsersPost));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         doReturn(Map.of(
                 userId,
@@ -118,6 +128,28 @@ class CommentServiceTest {
 
         assertThat(response.authorUsername()).isEqualTo("tamara");
         assertThat(response.authorDisplayName()).isEqualTo("Tamara");
+    }
+
+    @Test
+    void create_ownPost_doesNotPublishEvent() {
+        Post ownPost = new Post(postId, userId, "Hello");
+        when(postRepository.findById(postId)).thenReturn(Optional.of(ownPost));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        commentService.create(postId, new CreateCommentRequest("Note to self"));
+
+        verify(eventPublisher, never()).publishPostCommented(any());
+    }
+
+    @Test
+    void create_publisherFails_commentStillSucceeds() {
+        when(postRepository.findById(postId)).thenReturn(Optional.of(otherUsersPost));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("bus down")).when(eventPublisher).publishPostCommented(any());
+
+        CommentResponse response = commentService.create(postId, new CreateCommentRequest("Nice"));
+
+        assertThat(response.content()).isEqualTo("Nice");
     }
 
     @Test
