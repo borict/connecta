@@ -4,6 +4,7 @@ import connecta.post.domain.Post;
 import connecta.post.dto.CreatePostRequest;
 import connecta.post.dto.PageResponse;
 import connecta.post.dto.PostResponse;
+import connecta.post.repository.CommentRepository;
 import connecta.post.repository.PostLikeRepository;
 import connecta.post.repository.PostRepository;
 import connecta.post.security.AuthenticatedUser;
@@ -26,10 +27,16 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final PostLikeRepository likeRepository;
+    private final CommentRepository commentRepository;
 
-    public PostService(PostRepository postRepository, PostLikeRepository likeRepository) {
+    public PostService(
+            PostRepository postRepository,
+            PostLikeRepository likeRepository,
+            CommentRepository commentRepository
+    ) {
         this.postRepository = postRepository;
         this.likeRepository = likeRepository;
+        this.commentRepository = commentRepository;
     }
 
     @Transactional
@@ -84,7 +91,11 @@ public class PostService {
     }
 
     private PostResponse toResponse(Post post) {
-        return PostResponse.from(post, likeRepository.countByPostId(post.getId()), 0L);
+        return PostResponse.from(
+                post,
+                likeRepository.countByPostId(post.getId()),
+                commentRepository.countByPostId(post.getId())
+        );
     }
 
     static PageRequest pageRequest(int page, int size) {
