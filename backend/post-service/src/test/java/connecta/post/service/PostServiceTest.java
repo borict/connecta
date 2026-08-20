@@ -13,6 +13,7 @@ import connecta.post.domain.Role;
 import connecta.post.dto.CreatePostRequest;
 import connecta.post.dto.PageResponse;
 import connecta.post.dto.PostResponse;
+import connecta.post.repository.PostLikeRepository;
 import connecta.post.repository.PostRepository;
 import connecta.post.security.AuthenticatedUser;
 import java.util.List;
@@ -41,12 +42,15 @@ class PostServiceTest {
     @Mock
     private PostRepository postRepository;
 
+    @Mock
+    private PostLikeRepository likeRepository;
+
     private PostService postService;
     private UUID authorId;
 
     @BeforeEach
     void setUp() {
-        postService = new PostService(postRepository);
+        postService = new PostService(postRepository, likeRepository);
         authorId = UUID.randomUUID();
         AuthenticatedUser user = new AuthenticatedUser(authorId, "tamara", Role.USER);
         SecurityContextHolder.getContext().setAuthentication(
@@ -74,6 +78,19 @@ class PostServiceTest {
         assertThat(response.authorId()).isEqualTo(authorId);
         assertThat(response.content()).isEqualTo("Hello Connecta!");
         assertThat(response.likeCount()).isZero();
+        assertThat(response.commentCount()).isZero();
+    }
+
+    @Test
+    void getById_includesLikeCount() {
+        UUID postId = UUID.randomUUID();
+        Post post = new Post(postId, authorId, "Hello");
+        when(postRepository.findById(postId)).thenReturn(Optional.of(post));
+        when(likeRepository.countByPostId(postId)).thenReturn(3L);
+
+        PostResponse response = postService.getById(postId);
+
+        assertThat(response.likeCount()).isEqualTo(3);
         assertThat(response.commentCount()).isZero();
     }
 

@@ -4,6 +4,7 @@ import connecta.post.domain.Post;
 import connecta.post.dto.CreatePostRequest;
 import connecta.post.dto.PageResponse;
 import connecta.post.dto.PostResponse;
+import connecta.post.repository.PostLikeRepository;
 import connecta.post.repository.PostRepository;
 import connecta.post.security.AuthenticatedUser;
 import connecta.post.security.SecurityUtils;
@@ -24,9 +25,11 @@ public class PostService {
     static final int MAX_AUTHOR_IDS = 100;
 
     private final PostRepository postRepository;
+    private final PostLikeRepository likeRepository;
 
-    public PostService(PostRepository postRepository) {
+    public PostService(PostRepository postRepository, PostLikeRepository likeRepository) {
         this.postRepository = postRepository;
+        this.likeRepository = likeRepository;
     }
 
     @Transactional
@@ -38,12 +41,12 @@ public class PostService {
         }
 
         Post post = new Post(UUID.randomUUID(), currentUser.id(), content);
-        return PostResponse.from(postRepository.save(post));
+        return toResponse(postRepository.save(post));
     }
 
     @Transactional(readOnly = true)
     public PostResponse getById(UUID postId) {
-        return PostResponse.from(requirePost(postId));
+        return toResponse(requirePost(postId));
     }
 
     @Transactional(readOnly = true)
@@ -51,7 +54,7 @@ public class PostService {
         PageRequest pageRequest = pageRequest(page, size);
         return PageResponse.from(
                 postRepository.findByAuthorIdOrderByCreatedAtDesc(userId, pageRequest)
-                        .map(PostResponse::from)
+                        .map(this::toResponse)
         );
     }
 
@@ -61,7 +64,7 @@ public class PostService {
         PageRequest pageRequest = pageRequest(page, size);
         return PageResponse.from(
                 postRepository.findByAuthorIdInOrderByCreatedAtDesc(authorIds, pageRequest)
-                        .map(PostResponse::from)
+                        .map(this::toResponse)
         );
     }
 
@@ -78,6 +81,10 @@ public class PostService {
     private Post requirePost(UUID postId) {
         return postRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+    }
+
+    private PostResponse toResponse(Post post) {
+        return PostResponse.from(post, likeRepository.countByPostId(post.getId()), 0L);
     }
 
     static PageRequest pageRequest(int page, int size) {
