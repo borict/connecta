@@ -25,6 +25,10 @@ class GatewayAuthSupportTest {
         assertThat(support.isPublic(request(HttpMethod.GET, "/api/users/me"))).isFalse();
         assertThat(support.isPublic(request(HttpMethod.GET, "/api/admin/users"))).isFalse();
         assertThat(support.isAdminPath(request(HttpMethod.GET, "/api/admin/users"))).isTrue();
+        assertThat(support.isPublic(request(HttpMethod.POST, "/api/posts"))).isFalse();
+        assertThat(support.isPublic(request(HttpMethod.GET, "/api/posts/by-authors"))).isFalse();
+        assertThat(support.isPublic(request(HttpMethod.GET, "/api/posts/user/11111111-1111-1111-1111-111111111111"))).isFalse();
+        assertThat(support.isPublic(request(HttpMethod.DELETE, "/api/posts/11111111-1111-1111-1111-111111111111"))).isFalse();
     }
 
     private static ServerHttpRequest request(HttpMethod method, String path) {
