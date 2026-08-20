@@ -1,6 +1,7 @@
 package connecta.post.service;
 
 import connecta.post.domain.Post;
+import connecta.post.dto.AuthorSummary;
 import connecta.post.dto.CreatePostRequest;
 import connecta.post.dto.PageResponse;
 import connecta.post.dto.PostResponse;
@@ -12,6 +13,7 @@ import connecta.post.security.SecurityUtils;
 import connecta.post.storage.PostImageStorage;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -31,17 +33,20 @@ public class PostService {
     private final PostLikeRepository likeRepository;
     private final CommentRepository commentRepository;
     private final PostImageStorage postImageStorage;
+    private final AuthorEnrichmentService authorEnrichment;
 
     public PostService(
             PostRepository postRepository,
             PostLikeRepository likeRepository,
             CommentRepository commentRepository,
-            PostImageStorage postImageStorage
+            PostImageStorage postImageStorage,
+            AuthorEnrichmentService authorEnrichment
     ) {
         this.postRepository = postRepository;
         this.likeRepository = likeRepository;
         this.commentRepository = commentRepository;
         this.postImageStorage = postImageStorage;
+        this.authorEnrichment = authorEnrichment;
     }
 
     @Transactional
@@ -67,20 +72,14 @@ public class PostService {
     @Transactional(readOnly = true)
     public PageResponse<PostResponse> listByUser(UUID userId, int page, int size) {
         PageRequest pageRequest = pageRequest(page, size);
-        return PageResponse.from(
-                postRepository.findByAuthorIdOrderByCreatedAtDesc(userId, pageRequest)
-                        .map(this::toResponse)
-        );
+        return toPageResponse(postRepository.findByAuthorIdOrderByCreatedAtDesc(userId, pageRequest));
     }
 
     @Transactional(readOnly = true)
     public PageResponse<PostResponse> listByAuthors(String ids, int page, int size) {
         List<UUID> authorIds = parseAuthorIds(ids);
         PageRequest pageRequest = pageRequest(page, size);
-        return PageResponse.from(
-                postRepository.findByAuthorIdInOrderByCreatedAtDesc(authorIds, pageRequest)
-                        .map(this::toResponse)
-        );
+        return toPageResponse(postRepository.findByAuthorIdInOrderByCreatedAtDesc(authorIds, pageRequest));
     }
 
     @Transactional
@@ -100,10 +99,23 @@ public class PostService {
     }
 
     private PostResponse toResponse(Post post) {
+        return toResponse(post, authorEnrichment.byIds(List.of(post.getAuthorId())));
+    }
+
+    private PageResponse<PostResponse> toPageResponse(org.springframework.data.domain.Page<Post> page) {
+        Map<UUID, AuthorSummary> authors = authorEnrichment.byIds(
+                page.getContent().stream().map(Post::getAuthorId).toList()
+        );
+        return PageResponse.from(page.map(post -> toResponse(post, authors)));
+    }
+
+    private PostResponse toResponse(Post post, Map<UUID, AuthorSummary> authors) {
+        AuthorSummary author = authors.getOrDefault(post.getAuthorId(), AuthorSummary.fallback(post.getAuthorId()));
         return PostResponse.from(
                 post,
                 likeRepository.countByPostId(post.getId()),
-                commentRepository.countByPostId(post.getId())
+                commentRepository.countByPostId(post.getId()),
+                author
         );
     }
 

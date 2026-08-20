@@ -4,12 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import connecta.post.domain.Post;
 import connecta.post.domain.Role;
+import connecta.post.dto.AuthorSummary;
 import connecta.post.dto.CreatePostRequest;
 import connecta.post.dto.PageResponse;
 import connecta.post.dto.PostResponse;
@@ -18,7 +21,9 @@ import connecta.post.repository.PostLikeRepository;
 import connecta.post.repository.PostRepository;
 import connecta.post.security.AuthenticatedUser;
 import connecta.post.storage.PostImageStorage;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -54,17 +59,36 @@ class PostServiceTest {
     @Mock
     private PostImageStorage postImageStorage;
 
+    @Mock
+    private AuthorEnrichmentService authorEnrichment;
+
     private PostService postService;
     private UUID authorId;
 
     @BeforeEach
     void setUp() {
-        postService = new PostService(postRepository, likeRepository, commentRepository, postImageStorage);
+        postService = new PostService(
+                postRepository,
+                likeRepository,
+                commentRepository,
+                postImageStorage,
+                authorEnrichment
+        );
         authorId = UUID.randomUUID();
         AuthenticatedUser user = new AuthenticatedUser(authorId, "tamara", Role.USER);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities())
         );
+        lenient().when(authorEnrichment.byIds(any())).thenAnswer(invocation -> {
+            Collection<UUID> ids = invocation.getArgument(0);
+            if (ids == null) {
+                return Map.of();
+            }
+            return ids.stream()
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toMap(id -> id, AuthorSummary::fallback, (left, right) -> left));
+        });
     }
 
     @AfterEach
@@ -85,6 +109,7 @@ class PostServiceTest {
         assertThat(saved.getContent()).isEqualTo("Hello Connecta!");
         assertThat(saved.getImageUrl()).isNull();
         assertThat(response.authorId()).isEqualTo(authorId);
+        assertThat(response.authorUsername()).isNull();
         assertThat(response.content()).isEqualTo("Hello Connecta!");
         assertThat(response.likeCount()).isZero();
         assertThat(response.commentCount()).isZero();
@@ -106,6 +131,21 @@ class PostServiceTest {
 
         verify(postImageStorage).store(any(UUID.class), eq(image));
         assertThat(response.imageUrl()).isEqualTo("http://localhost:8080/media/posts/x.jpg");
+    }
+
+    @Test
+    void create_enrichesAuthorWhenUserServiceResponds() {
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doReturn(Map.of(
+                authorId,
+                new AuthorSummary(authorId, "tamara", "Tamara", "http://localhost:8080/media/profile-pictures/x.jpg")
+        )).when(authorEnrichment).byIds(any());
+
+        PostResponse response = postService.create(new CreatePostRequest("Hello"), null);
+
+        assertThat(response.authorUsername()).isEqualTo("tamara");
+        assertThat(response.authorDisplayName()).isEqualTo("Tamara");
+        assertThat(response.authorProfilePictureUrl()).isEqualTo("http://localhost:8080/media/profile-pictures/x.jpg");
     }
 
     @Test

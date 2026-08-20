@@ -23,6 +23,15 @@ spring:
     multipart:
       max-file-size: 5MB
       max-request-size: 6MB
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          user-service:
+            connectTimeout: 2000
+            readTimeout: 2000
 
 connecta:
   jwt:
@@ -31,6 +40,21 @@ connecta:
     local:
       base-dir: ${CONNECTA_STORAGE_DIR:./uploads}
       public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8080/media}
+  user-service:
+    url: ${USER_SERVICE_URL:http://localhost:8081}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 2
+  timelimiter:
+    instances:
+      user-service:
+        timeoutDuration: 2s
 
 management:
   endpoints:

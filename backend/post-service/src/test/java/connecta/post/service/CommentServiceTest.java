@@ -3,19 +3,25 @@ package connecta.post.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import connecta.post.domain.Comment;
 import connecta.post.domain.Role;
+import connecta.post.dto.AuthorSummary;
 import connecta.post.dto.CommentResponse;
 import connecta.post.dto.CreateCommentRequest;
 import connecta.post.repository.CommentRepository;
 import connecta.post.repository.PostRepository;
 import connecta.post.security.AuthenticatedUser;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,19 +43,32 @@ class CommentServiceTest {
     @Mock
     private CommentRepository commentRepository;
 
+    @Mock
+    private AuthorEnrichmentService authorEnrichment;
+
     private CommentService commentService;
     private UUID userId;
     private UUID postId;
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentService(postRepository, commentRepository);
+        commentService = new CommentService(postRepository, commentRepository, authorEnrichment);
         userId = UUID.randomUUID();
         postId = UUID.randomUUID();
         AuthenticatedUser user = new AuthenticatedUser(userId, "tamara", Role.USER);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities())
         );
+        lenient().when(authorEnrichment.byIds(any())).thenAnswer(invocation -> {
+            Collection<UUID> ids = invocation.getArgument(0);
+            if (ids == null) {
+                return Map.of();
+            }
+            return ids.stream()
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toMap(id -> id, AuthorSummary::fallback, (left, right) -> left));
+        });
     }
 
     @AfterEach
@@ -82,6 +101,23 @@ class CommentServiceTest {
         assertThat(saved.getAuthorId()).isEqualTo(userId);
         assertThat(saved.getContent()).isEqualTo("Nice post!");
         assertThat(response.content()).isEqualTo("Nice post!");
+        assertThat(response.authorId()).isEqualTo(userId);
+        assertThat(response.authorUsername()).isNull();
+    }
+
+    @Test
+    void create_enrichesAuthorWhenUserServiceResponds() {
+        when(postRepository.existsById(postId)).thenReturn(true);
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doReturn(Map.of(
+                userId,
+                new AuthorSummary(userId, "tamara", "Tamara", null)
+        )).when(authorEnrichment).byIds(any());
+
+        CommentResponse response = commentService.create(postId, new CreateCommentRequest("Nice"));
+
+        assertThat(response.authorUsername()).isEqualTo("tamara");
+        assertThat(response.authorDisplayName()).isEqualTo("Tamara");
     }
 
     @Test
