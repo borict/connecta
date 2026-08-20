@@ -9,6 +9,7 @@ import connecta.post.repository.PostLikeRepository;
 import connecta.post.repository.PostRepository;
 import connecta.post.security.AuthenticatedUser;
 import connecta.post.security.SecurityUtils;
+import connecta.post.storage.PostImageStorage;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -28,19 +30,22 @@ public class PostService {
     private final PostRepository postRepository;
     private final PostLikeRepository likeRepository;
     private final CommentRepository commentRepository;
+    private final PostImageStorage postImageStorage;
 
     public PostService(
             PostRepository postRepository,
             PostLikeRepository likeRepository,
-            CommentRepository commentRepository
+            CommentRepository commentRepository,
+            PostImageStorage postImageStorage
     ) {
         this.postRepository = postRepository;
         this.likeRepository = likeRepository;
         this.commentRepository = commentRepository;
+        this.postImageStorage = postImageStorage;
     }
 
     @Transactional
-    public PostResponse create(CreatePostRequest request) {
+    public PostResponse create(CreatePostRequest request, MultipartFile image) {
         AuthenticatedUser currentUser = SecurityUtils.requireCurrentUser();
         String content = request.content().trim();
         if (content.isEmpty()) {
@@ -48,6 +53,9 @@ public class PostService {
         }
 
         Post post = new Post(UUID.randomUUID(), currentUser.id(), content);
+        if (image != null && !image.isEmpty()) {
+            post.setImageUrl(postImageStorage.store(post.getId(), image));
+        }
         return toResponse(postRepository.save(post));
     }
 
@@ -83,6 +91,7 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the author can delete this post");
         }
         postRepository.delete(post);
+        postImageStorage.delete(post.getId());
     }
 
     private Post requirePost(UUID postId) {

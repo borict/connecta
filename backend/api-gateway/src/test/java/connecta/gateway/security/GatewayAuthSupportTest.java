@@ -17,6 +17,7 @@ class GatewayAuthSupportTest {
         assertThat(support.isPublic(request(HttpMethod.POST, "/api/auth/register"))).isTrue();
         assertThat(support.isPublic(request(HttpMethod.POST, "/api/auth/login"))).isTrue();
         assertThat(support.isPublic(request(HttpMethod.GET, "/media/profile-pictures/x.jpg"))).isTrue();
+        assertThat(support.isPublic(request(HttpMethod.GET, "/media/posts/x.jpg"))).isTrue();
         assertThat(support.isPublic(request(HttpMethod.GET, "/actuator/health"))).isTrue();
     }
 

@@ -34,6 +34,10 @@ spring:
           uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/admin/**
+        - id: post-media
+          uri: ${POST_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/media/posts/**
         - id: user-media
           uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates:

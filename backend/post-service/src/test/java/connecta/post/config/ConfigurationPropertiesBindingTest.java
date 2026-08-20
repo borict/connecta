@@ -10,19 +10,26 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 @SpringJUnitConfig(ConfigurationPropertiesBindingTest.TestConfig.class)
 @TestPropertySource(properties = {
-        "connecta.jwt.secret=test-secret-key-that-is-long-enough-for-hs256"
+        "connecta.jwt.secret=test-secret-key-that-is-long-enough-for-hs256",
+        "connecta.storage.local.base-dir=./uploads-test",
+        "connecta.storage.local.public-base-url=http://localhost:8080/media"
 })
 class ConfigurationPropertiesBindingTest {
 
-    @EnableConfigurationProperties(JwtProperties.class)
+    @EnableConfigurationProperties({JwtProperties.class, StorageProperties.class})
     static class TestConfig {
     }
 
     @Autowired
     private JwtProperties jwtProperties;
 
+    @Autowired
+    private StorageProperties storageProperties;
+
     @Test
-    void jwtPropertiesBindFromConfiguration() {
+    void jwtAndStoragePropertiesBindFromConfiguration() {
         assertThat(jwtProperties.secret()).isEqualTo("test-secret-key-that-is-long-enough-for-hs256");
+        assertThat(storageProperties.baseDir()).isEqualTo("./uploads-test");
+        assertThat(storageProperties.publicBaseUrl()).isEqualTo("http://localhost:8080/media");
     }
 }
