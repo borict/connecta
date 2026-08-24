@@ -105,6 +105,8 @@ User Service and Post Service ask Social (`GET /api/social/{userId}/is-following
 
 Home feed is `GET /api/feed` on Social: ACCEPTED followee IDs plus the viewer, then Post `GET /api/posts/by-authors`. If Post is down, Social returns an empty page (not 500).
 
+`USER_FOLLOWED` is published to Azure Service Bus only when a follow becomes `ACCEPTED` (public follow or accept). Fail-soft: missing connection string is a no-op; publish errors do not fail the HTTP request.
+
 ## Auth headers (Gateway → services)
 
 | Header | Source |

@@ -10,12 +10,16 @@ import connecta.social.dto.FollowStatsResponse;
 import connecta.social.dto.FollowUserResponse;
 import connecta.social.dto.FollowingIdsResponse;
 import connecta.social.dto.PageResponse;
+import connecta.social.messaging.FollowEventPublisher;
+import connecta.social.messaging.UserFollowedEvent;
 import connecta.social.repository.FollowRepository;
 import connecta.social.security.AuthenticatedUser;
 import connecta.social.security.SecurityUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +31,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class FollowService {
 
+    private static final Logger log = LoggerFactory.getLogger(FollowService.class);
+
     static final int DEFAULT_PAGE_SIZE = 20;
     static final int MAX_PAGE_SIZE = 50;
 
@@ -35,10 +41,16 @@ public class FollowService {
 
     private final FollowRepository followRepository;
     private final UserLookupService userLookup;
+    private final FollowEventPublisher eventPublisher;
 
-    public FollowService(FollowRepository followRepository, UserLookupService userLookup) {
+    public FollowService(
+            FollowRepository followRepository,
+            UserLookupService userLookup,
+            FollowEventPublisher eventPublisher
+    ) {
         this.followRepository = followRepository;
         this.userLookup = userLookup;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -58,7 +70,11 @@ public class FollowService {
         FollowStatus status = target.isPrivate() ? FollowStatus.PENDING : FollowStatus.ACCEPTED;
         Follow created = new Follow(currentUser.id(), followeeId, status);
         try {
-            return new FollowResult(FollowResponse.from(followRepository.save(created)), true);
+            Follow saved = followRepository.save(created);
+            if (saved.getStatus() == FollowStatus.ACCEPTED) {
+                publishFollowed(saved);
+            }
+            return new FollowResult(FollowResponse.from(saved), true);
         } catch (DataIntegrityViolationException ex) {
             Follow raced = followRepository.findById(id)
                     .orElseThrow(() -> ex);
@@ -84,7 +100,9 @@ public class FollowService {
             return FollowResponse.from(follow);
         }
         follow.setStatus(FollowStatus.ACCEPTED);
-        return FollowResponse.from(followRepository.save(follow));
+        Follow saved = followRepository.save(follow);
+        publishFollowed(saved);
+        return FollowResponse.from(saved);
     }
 
     @Transactional
@@ -192,6 +210,17 @@ public class FollowService {
     private Follow requireIncomingRequest(UUID followerId, UUID followeeId) {
         return followRepository.findById(new FollowId(followerId, followeeId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Follow request not found"));
+    }
+
+    private void publishFollowed(Follow follow) {
+        if (follow.getFollowerId().equals(follow.getFolloweeId())) {
+            return;
+        }
+        try {
+            eventPublisher.publishUserFollowed(UserFollowedEvent.of(follow.getFollowerId(), follow.getFolloweeId()));
+        } catch (RuntimeException ex) {
+            log.warn("USER_FOLLOWED publish failed; follow still succeeded. cause={}", ex.toString());
+        }
     }
 
     static PageRequest pageRequest(int page, int size) {

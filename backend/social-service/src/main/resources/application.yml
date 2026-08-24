@@ -39,6 +39,10 @@ connecta:
     url: ${USER_SERVICE_URL:http://localhost:8081}
   post-service:
     url: ${POST_SERVICE_URL:http://localhost:8082}
+  azure:
+    servicebus:
+      connection-string: ${AZURE_SERVICEBUS_CONNECTION_STRING:}
+      topic: ${AZURE_SERVICEBUS_TOPIC:connecta-events}
 
 resilience4j:
   circuitbreaker:

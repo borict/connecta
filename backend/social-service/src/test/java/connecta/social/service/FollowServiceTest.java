@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -20,6 +21,8 @@ import connecta.social.dto.FollowStatsResponse;
 import connecta.social.dto.FollowUserResponse;
 import connecta.social.dto.FollowingIdsResponse;
 import connecta.social.dto.PageResponse;
+import connecta.social.messaging.FollowEventPublisher;
+import connecta.social.messaging.UserFollowedEvent;
 import connecta.social.repository.FollowRepository;
 import connecta.social.security.AuthenticatedUser;
 import java.util.List;
@@ -50,13 +53,16 @@ class FollowServiceTest {
     @Mock
     private UserLookupService userLookup;
 
+    @Mock
+    private FollowEventPublisher eventPublisher;
+
     private FollowService followService;
     private UUID followerId;
     private UUID followeeId;
 
     @BeforeEach
     void setUp() {
-        followService = new FollowService(followRepository, userLookup);
+        followService = new FollowService(followRepository, userLookup, eventPublisher);
         followerId = UUID.randomUUID();
         followeeId = UUID.randomUUID();
         AuthenticatedUser user = new AuthenticatedUser(followerId, "tamara", Role.USER);
@@ -98,6 +104,7 @@ class FollowServiceTest {
         assertThat(captor.getValue().getFollowerId()).isEqualTo(followerId);
         assertThat(captor.getValue().getFolloweeId()).isEqualTo(followeeId);
         assertThat(captor.getValue().getStatus()).isEqualTo(FollowStatus.ACCEPTED);
+        verify(eventPublisher).publishUserFollowed(any(UserFollowedEvent.class));
     }
 
     @Test
@@ -109,6 +116,7 @@ class FollowServiceTest {
         FollowResponse response = followService.follow(followeeId).follow();
 
         assertThat(response.status()).isEqualTo(FollowStatus.PENDING);
+        verify(eventPublisher, never()).publishUserFollowed(any());
     }
 
     @Test
@@ -122,6 +130,7 @@ class FollowServiceTest {
         assertThat(result.follow().status()).isEqualTo(FollowStatus.ACCEPTED);
         verify(userLookup, never()).requireActiveUser(any());
         verify(followRepository, never()).save(any());
+        verify(eventPublisher, never()).publishUserFollowed(any());
     }
 
     @Test
@@ -137,6 +146,7 @@ class FollowServiceTest {
 
         assertThat(result.created()).isFalse();
         assertThat(result.follow().status()).isEqualTo(FollowStatus.PENDING);
+        verify(eventPublisher, never()).publishUserFollowed(any());
     }
 
     @Test
@@ -170,6 +180,7 @@ class FollowServiceTest {
         assertThat(response.status()).isEqualTo(FollowStatus.ACCEPTED);
         assertThat(pending.getStatus()).isEqualTo(FollowStatus.ACCEPTED);
         verify(followRepository).save(pending);
+        verify(eventPublisher).publishUserFollowed(any(UserFollowedEvent.class));
     }
 
     @Test
@@ -182,6 +193,7 @@ class FollowServiceTest {
 
         assertThat(response.status()).isEqualTo(FollowStatus.ACCEPTED);
         verify(followRepository, never()).save(any());
+        verify(eventPublisher, never()).publishUserFollowed(any());
     }
 
     @Test
@@ -351,6 +363,19 @@ class FollowServiceTest {
         assertThat(state.following()).isFalse();
         assertThat(state.pending()).isFalse();
         verify(followRepository, never()).findById(any());
+    }
+
+    @Test
+    void follow_publisherFails_followStillSucceeds() {
+        when(followRepository.findById(any())).thenReturn(Optional.empty());
+        when(userLookup.requireActiveUser(followeeId)).thenReturn(user(followeeId, false));
+        when(followRepository.save(any(Follow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("bus down")).when(eventPublisher).publishUserFollowed(any());
+
+        FollowService.FollowResult result = followService.follow(followeeId);
+
+        assertThat(result.created()).isTrue();
+        assertThat(result.follow().status()).isEqualTo(FollowStatus.ACCEPTED);
     }
 
     private void authenticate(UUID userId) {
