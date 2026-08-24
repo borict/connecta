@@ -130,7 +130,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Faza 1: User Service + Gateway + Swagger.
 - Faza 2: Post Service (CRUD, likes, comments, local post images, User Service enrichment, Azure Service Bus publisher).
 - Faza 3: Social Service (follow/unfollow, private-profile requests, lists, home feed, `USER_FOLLOWED`).
-- Faza 4: Notification Service (REST lista/read/unread-count, event mapping `POST_LIKED` / `POST_COMMENTED` / `USER_FOLLOWED`). Azure processor (complete/abandon/DLQ) is the remaining wiring step.
+- Faza 4: Notification Service (REST lista/read/unread-count, Azure consumer na `connecta-events` / `notification-service`, fail-soft publisheri).
 
 ### Smoke test (Faza 1)
 
@@ -150,7 +150,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 7. Comment: `POST .../comments` → list → `DELETE /api/posts/comments/{commentId}` (samo autor komentara)
 8. Delete post: drugi user → 403; autor → 204
 9. Gateway: `http://localhost:8080/api/posts/**` sa Bearer tokenom; slika na `http://localhost:8080/media/posts/...`
-10. Bez JWT-a → 401 `ApiErrorResponse`. Azure eventi (`POST_LIKED` / `POST_COMMENTED`) se mapiraju u Notification Service; end-to-end provera (like → lista) treba Azure processor (vidi smoke Faza 4).
+10. Bez JWT-a → 401 `ApiErrorResponse`. Azure eventi (`POST_LIKED` / `POST_COMMENTED`) se proveravaju kroz Notification Service (vidi smoke Faza 4).
 
 ### Smoke test (Faza 3)
 
@@ -164,7 +164,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 8. Self-follow → **400**. `DELETE /api/social/{userId}` → **204** (i kad relacija ne postoji)
 9. Privatni profil: ko **nije** ACCEPTED follower vidi limited User polja i **403** na `GET /api/posts/user/{userId}`; posle accept-a vidi pun profil i postove
 10. `GET /api/feed` — tvoji postovi + ACCEPTED followee-i; ako Post Service ne radi → prazna strana **200**. Gateway: `http://localhost:8080/api/social/**` i `http://localhost:8080/api/feed`
-11. Bez JWT-a → **401**. `USER_FOLLOWED` se mapira u Notification Service na `ACCEPTED`; end-to-end provera treba Azure processor (vidi smoke Faza 4).
+11. Bez JWT-a → **401**. `USER_FOLLOWED` se proverava kroz Notification Service na `ACCEPTED` (vidi smoke Faza 4).
 
 ### Smoke test (Faza 4)
 
@@ -176,6 +176,6 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 6. `PUT /api/notifications/{randomUuid}/read` → **404** `ApiErrorResponse`; `PUT /api/notifications/read-all` → **204**
 7. Gateway: `http://localhost:8080/api/notifications/**` sa Bearer tokenom
 8. Bez JWT-a → **401** `ApiErrorResponse`
-9. End-to-end Azure (kad processor radi i `AZURE_SERVICEBUS_CONNECTION_STRING` je setovan): drugi user like/comment na tvoj post, ili `ACCEPTED` follow → tvoja lista dobija `LIKE` / `COMMENT` / `FOLLOW`; unread-count raste; `PUT .../{id}/read` → `read: true`; ponovo read → **200**. Self-like/comment/follow ne prave notifikaciju. `MESSAGE_SENT` se ignoriše do Faze 5.
+9. End-to-end Azure: setuj `AZURE_SERVICEBUS_CONNECTION_STRING` (topic `connecta-events`, subscription `notification-service`). Bez stringa consumer je no-op i lista ostaje prazna; like/follow i dalje uspevaju. Sa stringom: drugi user like/comment na tvoj post, ili `ACCEPTED` follow → tvoja lista dobija `LIKE` / `COMMENT` / `FOLLOW`; unread-count raste; `PUT .../{id}/read` → `read: true`; ponovo read → **200**. Self-like/comment/follow ne prave notifikaciju. `MESSAGE_SENT` se ignoriše do Faze 5.
 
 
