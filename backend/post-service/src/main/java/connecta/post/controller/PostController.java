@@ -98,10 +98,14 @@ public class PostController {
         return postService.listByAuthors(ids, page, size);
     }
 
-    @Operation(summary = "List posts by user")
+    @Operation(
+            summary = "List posts by user",
+            description = "Returns 403 when the author's profile is private and the viewer is not an ACCEPTED follower."
+    )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse")))
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))),
+            @ApiResponse(responseCode = "403", description = "Private profile", content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse")))
     })
     @GetMapping("/user/{userId}")
     public PageResponse<PostResponse> listByUser(

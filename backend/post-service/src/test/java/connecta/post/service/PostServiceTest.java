@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -62,6 +63,9 @@ class PostServiceTest {
     @Mock
     private AuthorEnrichmentService authorEnrichment;
 
+    @Mock
+    private PostVisibilityService visibility;
+
     private PostService postService;
     private UUID authorId;
 
@@ -72,7 +76,8 @@ class PostServiceTest {
                 likeRepository,
                 commentRepository,
                 postImageStorage,
-                authorEnrichment
+                authorEnrichment,
+                visibility
         );
         authorId = UUID.randomUUID();
         AuthenticatedUser user = new AuthenticatedUser(authorId, "tamara", Role.USER);
@@ -88,6 +93,13 @@ class PostServiceTest {
                     .filter(java.util.Objects::nonNull)
                     .distinct()
                     .collect(Collectors.toMap(id -> id, AuthorSummary::fallback, (left, right) -> left));
+        });
+        lenient().when(visibility.visibleAuthorIds(any())).thenAnswer(invocation -> {
+            Collection<UUID> ids = invocation.getArgument(0);
+            if (ids == null) {
+                return List.of();
+            }
+            return List.copyOf(ids);
         });
     }
 
@@ -138,7 +150,7 @@ class PostServiceTest {
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> invocation.getArgument(0));
         doReturn(Map.of(
                 authorId,
-                new AuthorSummary(authorId, "tamara", "Tamara", "http://localhost:8080/media/profile-pictures/x.jpg")
+                new AuthorSummary(authorId, "tamara", "Tamara", "http://localhost:8080/media/profile-pictures/x.jpg", false)
         )).when(authorEnrichment).byIds(any());
 
         PostResponse response = postService.create(new CreatePostRequest("Hello"), null);
@@ -190,6 +202,23 @@ class PostServiceTest {
     }
 
     @Test
+    void getById_hiddenPrivatePost_returnsNotFound() {
+        UUID postId = UUID.randomUUID();
+        Post post = new Post(postId, UUID.randomUUID(), "Hello");
+        when(postRepository.findById(postId)).thenReturn(Optional.of(post));
+        doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"))
+                .when(visibility).requireVisiblePost(post);
+
+        assertThatThrownBy(() -> postService.getById(postId))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> {
+                    ResponseStatusException statusEx = (ResponseStatusException) ex;
+                    assertThat(statusEx.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+                    assertThat(statusEx.getReason()).isEqualTo("Post not found");
+                });
+    }
+
+    @Test
     void delete_nonAuthor_returnsForbidden() {
         UUID postId = UUID.randomUUID();
         Post post = new Post(postId, UUID.randomUUID(), "Hello");
@@ -220,6 +249,47 @@ class PostServiceTest {
         assertThat(captor.getValue().getPageSize()).isEqualTo(50);
         assertThat(response.page()).isZero();
         assertThat(response.size()).isEqualTo(50);
+    }
+
+    @Test
+    void listByUser_privateProfile_returnsForbidden() {
+        UUID userId = UUID.randomUUID();
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "This profile is private"))
+                .when(visibility).requireVisibleProfilePosts(userId);
+
+        assertThatThrownBy(() -> postService.listByUser(userId, 0, 20))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> {
+                    ResponseStatusException statusEx = (ResponseStatusException) ex;
+                    assertThat(statusEx.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(statusEx.getReason()).isEqualTo("This profile is private");
+                });
+        verify(postRepository, never()).findByAuthorIdOrderByCreatedAtDesc(any(), any());
+    }
+
+    @Test
+    void listByAuthors_dropsAuthorsTheViewerCannotSee() {
+        UUID publicId = UUID.randomUUID();
+        UUID hiddenId = UUID.randomUUID();
+        when(visibility.visibleAuthorIds(any())).thenReturn(List.of(publicId));
+        when(postRepository.findByAuthorIdInOrderByCreatedAtDesc(eq(List.of(publicId)), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        postService.listByAuthors(publicId + "," + hiddenId, 0, 20);
+
+        verify(postRepository).findByAuthorIdInOrderByCreatedAtDesc(eq(List.of(publicId)), any(Pageable.class));
+    }
+
+    @Test
+    void listByAuthors_noneVisible_returnsEmptyWithoutQuery() {
+        UUID hiddenId = UUID.randomUUID();
+        when(visibility.visibleAuthorIds(any())).thenReturn(List.of());
+
+        PageResponse<PostResponse> response = postService.listByAuthors(hiddenId.toString(), 0, 20);
+
+        verify(postRepository, never()).findByAuthorIdInOrderByCreatedAtDesc(any(), any());
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
     }
 
     @Test

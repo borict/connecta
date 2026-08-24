@@ -26,10 +26,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ProfilePictureStorage profilePictureStorage;
+    private final ProfileVisibilityService profileVisibility;
 
-    public UserService(UserRepository userRepository, ProfilePictureStorage profilePictureStorage) {
+    public UserService(
+            UserRepository userRepository,
+            ProfilePictureStorage profilePictureStorage,
+            ProfileVisibilityService profileVisibility
+    ) {
         this.userRepository = userRepository;
         this.profilePictureStorage = profilePictureStorage;
+        this.profileVisibility = profileVisibility;
     }
 
     @Transactional(readOnly = true)
@@ -127,12 +133,11 @@ public class UserService {
     }
 
     /**
-     * Private profiles return limited fields unless the viewer is the owner.
-     * Follow ACCEPTED checks will be added when Social Service exists.
+     * Private profiles return limited fields unless the viewer is the owner
+     * or an ACCEPTED follower.
      */
     private Object toProfileView(User user, AuthenticatedUser viewer) {
-        boolean canSeeFullProfile = user.getId().equals(viewer.id()) || !user.isPrivate();
-        if (canSeeFullProfile) {
+        if (profileVisibility.canSeeFullProfile(user, viewer)) {
             return UserPublicResponse.from(user);
         }
         return UserLimitedResponse.from(user);

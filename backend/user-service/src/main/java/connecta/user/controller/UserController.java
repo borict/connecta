@@ -74,7 +74,7 @@ public class UserController {
 
     @Operation(
             summary = "Get user by id",
-            description = "Public profile, or limited fields when the target profile is private and the viewer is not the owner.",
+            description = "Public profile, or limited fields when the target profile is private and the viewer is neither the owner nor an ACCEPTED follower.",
             tags = {"Profiles"},
             responses = {
                     @ApiResponse(responseCode = "200", description = "OK", content = {

@@ -58,7 +58,8 @@ public class AuthorEnrichmentService {
                                     user.id(),
                                     user.username(),
                                     user.displayName(),
-                                    user.profilePictureUrl()
+                                    user.profilePictureUrl(),
+                                    user.isPrivate()
                             )
                     );
                 }

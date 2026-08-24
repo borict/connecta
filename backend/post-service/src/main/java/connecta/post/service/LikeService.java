@@ -28,15 +28,18 @@ public class LikeService {
     private final PostRepository postRepository;
     private final PostLikeRepository likeRepository;
     private final PostEventPublisher eventPublisher;
+    private final PostVisibilityService visibility;
 
     public LikeService(
             PostRepository postRepository,
             PostLikeRepository likeRepository,
-            PostEventPublisher eventPublisher
+            PostEventPublisher eventPublisher,
+            PostVisibilityService visibility
     ) {
         this.postRepository = postRepository;
         this.likeRepository = likeRepository;
         this.eventPublisher = eventPublisher;
+        this.visibility = visibility;
     }
 
     @Transactional
@@ -90,7 +93,9 @@ public class LikeService {
     }
 
     private Post requirePost(UUID postId) {
-        return postRepository.findById(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+        visibility.requireVisiblePost(post);
+        return post;
     }
 }

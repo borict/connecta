@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -34,19 +35,22 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final PostImageStorage postImageStorage;
     private final AuthorEnrichmentService authorEnrichment;
+    private final PostVisibilityService visibility;
 
     public PostService(
             PostRepository postRepository,
             PostLikeRepository likeRepository,
             CommentRepository commentRepository,
             PostImageStorage postImageStorage,
-            AuthorEnrichmentService authorEnrichment
+            AuthorEnrichmentService authorEnrichment,
+            PostVisibilityService visibility
     ) {
         this.postRepository = postRepository;
         this.likeRepository = likeRepository;
         this.commentRepository = commentRepository;
         this.postImageStorage = postImageStorage;
         this.authorEnrichment = authorEnrichment;
+        this.visibility = visibility;
     }
 
     @Transactional
@@ -71,6 +75,7 @@ public class PostService {
 
     @Transactional(readOnly = true)
     public PageResponse<PostResponse> listByUser(UUID userId, int page, int size) {
+        visibility.requireVisibleProfilePosts(userId);
         PageRequest pageRequest = pageRequest(page, size);
         return toPageResponse(postRepository.findByAuthorIdOrderByCreatedAtDesc(userId, pageRequest));
     }
@@ -79,7 +84,11 @@ public class PostService {
     public PageResponse<PostResponse> listByAuthors(String ids, int page, int size) {
         List<UUID> authorIds = parseAuthorIds(ids);
         PageRequest pageRequest = pageRequest(page, size);
-        return toPageResponse(postRepository.findByAuthorIdInOrderByCreatedAtDesc(authorIds, pageRequest));
+        List<UUID> visibleAuthorIds = visibility.visibleAuthorIds(authorIds);
+        if (visibleAuthorIds.isEmpty()) {
+            return PageResponse.from(new PageImpl<>(List.of(), pageRequest, 0));
+        }
+        return toPageResponse(postRepository.findByAuthorIdInOrderByCreatedAtDesc(visibleAuthorIds, pageRequest));
     }
 
     @Transactional
@@ -94,8 +103,10 @@ public class PostService {
     }
 
     private Post requirePost(UUID postId) {
-        return postRepository.findById(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+        visibility.requireVisiblePost(post);
+        return post;
     }
 
     private PostResponse toResponse(Post post) {

@@ -43,6 +43,9 @@ class LikeServiceTest {
     @Mock
     private PostEventPublisher eventPublisher;
 
+    @Mock
+    private PostVisibilityService visibility;
+
     private LikeService likeService;
     private UUID userId;
     private UUID postId;
@@ -50,7 +53,7 @@ class LikeServiceTest {
 
     @BeforeEach
     void setUp() {
-        likeService = new LikeService(postRepository, likeRepository, eventPublisher);
+        likeService = new LikeService(postRepository, likeRepository, eventPublisher, visibility);
         userId = UUID.randomUUID();
         postId = UUID.randomUUID();
         otherUsersPost = new Post(postId, UUID.randomUUID(), "Hello");

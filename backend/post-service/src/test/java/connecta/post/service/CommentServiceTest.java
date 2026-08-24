@@ -53,6 +53,9 @@ class CommentServiceTest {
     @Mock
     private PostEventPublisher eventPublisher;
 
+    @Mock
+    private PostVisibilityService visibility;
+
     private CommentService commentService;
     private UUID userId;
     private UUID postId;
@@ -60,7 +63,13 @@ class CommentServiceTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentService(postRepository, commentRepository, authorEnrichment, eventPublisher);
+        commentService = new CommentService(
+                postRepository,
+                commentRepository,
+                authorEnrichment,
+                eventPublisher,
+                visibility
+        );
         userId = UUID.randomUUID();
         postId = UUID.randomUUID();
         otherUsersPost = new Post(postId, UUID.randomUUID(), "Hello");
@@ -121,7 +130,7 @@ class CommentServiceTest {
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         doReturn(Map.of(
                 userId,
-                new AuthorSummary(userId, "tamara", "Tamara", null)
+                new AuthorSummary(userId, "tamara", "Tamara", null, false)
         )).when(authorEnrichment).byIds(any());
 
         CommentResponse response = commentService.create(postId, new CreateCommentRequest("Nice"));

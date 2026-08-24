@@ -101,6 +101,8 @@ FE for private profile when viewer is not an accepted follower: picture, display
 
 Social Service should call User Service (Feign) for `isPrivate` when handling follow.
 
+User Service and Post Service ask Social (`GET /api/social/{userId}/is-following`, and Post uses `GET /api/social/me/following` for batch) whether the viewer has an `ACCEPTED` follow. If Social (or User, for Post `isPrivate`) is down, do not leak: treat the viewer as not a follower / the profile as private.
+
 ## Auth headers (Gateway → services)
 
 | Header | Source |

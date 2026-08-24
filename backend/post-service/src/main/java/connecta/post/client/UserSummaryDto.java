@@ -8,6 +8,7 @@ public record UserSummaryDto(
         UUID id,
         String username,
         String displayName,
-        String profilePictureUrl
+        String profilePictureUrl,
+        boolean isPrivate
 ) {
 }

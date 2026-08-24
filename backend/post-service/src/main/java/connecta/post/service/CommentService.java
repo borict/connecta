@@ -31,17 +31,20 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final AuthorEnrichmentService authorEnrichment;
     private final PostEventPublisher eventPublisher;
+    private final PostVisibilityService visibility;
 
     public CommentService(
             PostRepository postRepository,
             CommentRepository commentRepository,
             AuthorEnrichmentService authorEnrichment,
-            PostEventPublisher eventPublisher
+            PostEventPublisher eventPublisher,
+            PostVisibilityService visibility
     ) {
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.authorEnrichment = authorEnrichment;
         this.eventPublisher = eventPublisher;
+        this.visibility = visibility;
     }
 
     @Transactional
@@ -112,7 +115,9 @@ public class CommentService {
     }
 
     private Post requirePost(UUID postId) {
-        return postRepository.findById(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+        visibility.requireVisiblePost(post);
+        return post;
     }
 }

@@ -6,9 +6,10 @@ public record AuthorSummary(
         UUID id,
         String username,
         String displayName,
-        String profilePictureUrl
+        String profilePictureUrl,
+        boolean isPrivate
 ) {
     public static AuthorSummary fallback(UUID id) {
-        return new AuthorSummary(id, null, null, null);
+        return new AuthorSummary(id, null, null, null, true);
     }
 }

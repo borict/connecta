@@ -36,7 +36,7 @@ class AuthorEnrichmentServiceTest {
     void byIds_mapsUserSummaries() {
         UUID authorId = UUID.randomUUID();
         when(userClient.batchUsers(authorId.toString())).thenReturn(List.of(
-                new UserSummaryDto(authorId, "tamara", "Tamara", "http://pic")
+                new UserSummaryDto(authorId, "tamara", "Tamara", "http://pic", false)
         ));
 
         Map<UUID, AuthorSummary> result = enrichment.byIds(List.of(authorId));
@@ -44,6 +44,7 @@ class AuthorEnrichmentServiceTest {
         assertThat(result.get(authorId).username()).isEqualTo("tamara");
         assertThat(result.get(authorId).displayName()).isEqualTo("Tamara");
         assertThat(result.get(authorId).profilePictureUrl()).isEqualTo("http://pic");
+        assertThat(result.get(authorId).isPrivate()).isFalse();
     }
 
     @Test

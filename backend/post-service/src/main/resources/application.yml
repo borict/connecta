@@ -32,6 +32,9 @@ spring:
           user-service:
             connectTimeout: 2000
             readTimeout: 2000
+          social-service:
+            connectTimeout: 2000
+            readTimeout: 2000
 
 connecta:
   jwt:
@@ -42,6 +45,8 @@ connecta:
       public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8080/media}
   user-service:
     url: ${USER_SERVICE_URL:http://localhost:8081}
+  social-service:
+    url: ${SOCIAL_SERVICE_URL:http://localhost:8083}
   azure:
     servicebus:
       connection-string: ${AZURE_SERVICEBUS_CONNECTION_STRING:}
@@ -55,9 +60,16 @@ resilience4j:
         failureRateThreshold: 50
         waitDurationInOpenState: 5s
         permittedNumberOfCallsInHalfOpenState: 2
+      social-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 2
   timelimiter:
     instances:
       user-service:
+        timeoutDuration: 2s
+      social-service:
         timeoutDuration: 2s
 
 management:
