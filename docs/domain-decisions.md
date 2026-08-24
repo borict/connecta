@@ -1,4 +1,4 @@
-# Connecta — domain decisions (User / Auth / Social / Posts)
+# Connecta — domain decisions (User / Auth / Social / Posts / Notifications)
 
 Locked for implementation. Private master plan PDF may lag; this file is the repo source of truth for these rules.
 
@@ -106,6 +106,29 @@ User Service and Post Service ask Social (`GET /api/social/{userId}/is-following
 Home feed is `GET /api/feed` on Social: ACCEPTED followee IDs plus the viewer, then Post `GET /api/posts/by-authors`. If Post is down, Social returns an empty page (not 500).
 
 `USER_FOLLOWED` is published to Azure Service Bus only when a follow becomes `ACCEPTED` (public follow or accept). Fail-soft: missing connection string is a no-op; publish errors do not fail the HTTP request.
+
+## Notifications
+
+Notification Service (`:8085`, `notifications_db`) owns in-app notifications. Gateway route: `/api/notifications/**`.
+
+REST (JWT, current user only; `page`/`size` like other services):
+
+- `GET /api/notifications` — newest first
+- `GET /api/notifications/unread-count`
+- `PUT /api/notifications/{id}/read` — idempotent; missing or another user's id → **404**
+- `PUT /api/notifications/read-all` — **204**
+
+Events on topic `connecta-events` (subscription `notification-service`). Publishers (Post / Social) stay fail-soft. Mapping:
+
+| Event | `type` | `resource_type` | `resource_id` | recipient | actor |
+|-------|--------|-----------------|---------------|-----------|-------|
+| `POST_LIKED` | `LIKE` | `POST` | `postId` | `postAuthorId` | `actorId` |
+| `POST_COMMENTED` | `COMMENT` | `POST` | `postId` | `postAuthorId` | `actorId` |
+| `USER_FOLLOWED` | `FOLLOW` | `USER` | `followerId` | `followeeId` | `followerId` |
+
+Self-events and unknown types (including `MESSAGE_SENT` until Phase 5) are ignored. Duplicate Azure `messageId` is stored as `source_message_id` (unique) so retries do not insert twice. Messages are generic English strings; `actorId` is returned for later FE enrichment. No Feign to User Service. `MESSAGE` / `CONVERSATION` exist on the schema for Phase 5.
+
+Handler results for the Azure processor: persist → complete; ignore → complete; invalid payload → dead-letter; transient DB errors → abandon (subscription `maxDeliveryCount` → DLQ).
 
 ## Auth headers (Gateway → services)
 

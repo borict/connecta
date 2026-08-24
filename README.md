@@ -118,17 +118,19 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 
 - `.env` se ne commituje. Koristi `.env.example` kao šablon.
 - Azure Service Bus i Azure Blob Storage nisu u Docker Compose-u (cloud servisi).
-- Domen odluke (User model, admin, privatni profili, JWT headeri, post slike): [docs/domain-decisions.md](docs/domain-decisions.md).
+- Domen odluke (User model, admin, privatni profili, JWT headeri, post slike, notifikacije): [docs/domain-decisions.md](docs/domain-decisions.md).
 - Follow model (PENDING/ACCEPTED, feed, `USER_FOLLOWED`): [docs/social-follow-model.md](docs/social-follow-model.md).
 - Seed admin (User Service Flyway): username `admin`, password `Admin123!`.
-- API entrypoint: Gateway `http://localhost:8080` (User `8081`, Post `8082`, Social `8083`).
+- API entrypoint: Gateway `http://localhost:8080` (User `8081`, Post `8082`, Social `8083`, Notification `8085`).
 - Swagger (User Service): [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
 - Swagger (Post Service): [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html)
 - Swagger (Social Service): [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html)
+- Swagger (Notification Service): [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html)
 - Gateway **nema** Swagger UI.
 - Faza 1: User Service + Gateway + Swagger.
 - Faza 2: Post Service (CRUD, likes, comments, local post images, User Service enrichment, Azure Service Bus publisher).
 - Faza 3: Social Service (follow/unfollow, private-profile requests, lists, home feed, `USER_FOLLOWED`).
+- Faza 4: Notification Service (REST lista/read/unread-count, event mapping `POST_LIKED` / `POST_COMMENTED` / `USER_FOLLOWED`). Azure processor (complete/abandon/DLQ) is the remaining wiring step.
 
 ### Smoke test (Faza 1)
 
@@ -148,7 +150,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 7. Comment: `POST .../comments` → list → `DELETE /api/posts/comments/{commentId}` (samo autor komentara)
 8. Delete post: drugi user → 403; autor → 204
 9. Gateway: `http://localhost:8080/api/posts/**` sa Bearer tokenom; slika na `http://localhost:8080/media/posts/...`
-10. Bez JWT-a → 401 `ApiErrorResponse`. Azure eventi (`POST_LIKED` / `POST_COMMENTED`) se ne proveravaju ručno dok Notification Service ne postoji.
+10. Bez JWT-a → 401 `ApiErrorResponse`. Azure eventi (`POST_LIKED` / `POST_COMMENTED`) se mapiraju u Notification Service; end-to-end provera (like → lista) treba Azure processor (vidi smoke Faza 4).
 
 ### Smoke test (Faza 3)
 
@@ -162,6 +164,18 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 8. Self-follow → **400**. `DELETE /api/social/{userId}` → **204** (i kad relacija ne postoji)
 9. Privatni profil: ko **nije** ACCEPTED follower vidi limited User polja i **403** na `GET /api/posts/user/{userId}`; posle accept-a vidi pun profil i postove
 10. `GET /api/feed` — tvoji postovi + ACCEPTED followee-i; ako Post Service ne radi → prazna strana **200**. Gateway: `http://localhost:8080/api/social/**` i `http://localhost:8080/api/feed`
-11. Bez JWT-a → **401**. `USER_FOLLOWED` se ne proverava ručno dok Notification Service ne postoji.
+11. Bez JWT-a → **401**. `USER_FOLLOWED` se mapira u Notification Service na `ACCEPTED`; end-to-end provera treba Azure processor (vidi smoke Faza 4).
+
+### Smoke test (Faza 4)
+
+1. `docker compose up -d` (Postgres host port **5433**)
+2. Pokreni `user-service`, `post-service`, `social-service`, `notification-service` i `api-gateway` (isti `JWT_SECRET`)
+3. User Swagger: login (`admin` / `Admin123!` ili dva registrovana naloga) → kopiraj token
+4. Notification Swagger [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html) → **Authorize** (Bearer). Tag: **Notifications**
+5. `GET /api/notifications` → prazna strana **200** `{ content, page, size, totalElements, totalPages }`; `GET /api/notifications/unread-count` → `{ unreadCount: 0 }`
+6. `PUT /api/notifications/{randomUuid}/read` → **404** `ApiErrorResponse`; `PUT /api/notifications/read-all` → **204**
+7. Gateway: `http://localhost:8080/api/notifications/**` sa Bearer tokenom
+8. Bez JWT-a → **401** `ApiErrorResponse`
+9. End-to-end Azure (kad processor radi i `AZURE_SERVICEBUS_CONNECTION_STRING` je setovan): drugi user like/comment na tvoj post, ili `ACCEPTED` follow → tvoja lista dobija `LIKE` / `COMMENT` / `FOLLOW`; unread-count raste; `PUT .../{id}/read` → `read: true`; ponovo read → **200**. Self-like/comment/follow ne prave notifikaciju. `MESSAGE_SENT` se ignoriše do Faze 5.
 
 

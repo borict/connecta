@@ -25,4 +25,4 @@ User and Post ask Social whether the viewer is an `ACCEPTED` follower before sho
 
 Feed (`GET /api/feed`) lives in Social: ACCEPTED following IDs + self → Post `by-authors`. Post down → empty page.
 
-`USER_FOLLOWED` is sent only when status becomes `ACCEPTED` (not on PENDING, reject, unfollow, or idempotent replay).
+`USER_FOLLOWED` is sent only when status becomes `ACCEPTED` (not on PENDING, reject, unfollow, or idempotent replay). Notification Service maps it to a `FOLLOW` row for the followee (`docs/domain-decisions.md`).
