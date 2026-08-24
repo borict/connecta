@@ -30,6 +30,9 @@ class GatewayAuthSupportTest {
         assertThat(support.isPublic(request(HttpMethod.GET, "/api/posts/by-authors"))).isFalse();
         assertThat(support.isPublic(request(HttpMethod.GET, "/api/posts/user/11111111-1111-1111-1111-111111111111"))).isFalse();
         assertThat(support.isPublic(request(HttpMethod.DELETE, "/api/posts/11111111-1111-1111-1111-111111111111"))).isFalse();
+        assertThat(support.isPublic(request(HttpMethod.POST, "/api/social/11111111-1111-1111-1111-111111111111"))).isFalse();
+        assertThat(support.isPublic(request(HttpMethod.GET, "/api/social/me/following"))).isFalse();
+        assertThat(support.isPublic(request(HttpMethod.GET, "/api/feed"))).isFalse();
     }
 
     private static ServerHttpRequest request(HttpMethod method, String path) {
