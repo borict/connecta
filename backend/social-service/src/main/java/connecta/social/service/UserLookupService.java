@@ -2,8 +2,13 @@ package connecta.social.service;
 
 import connecta.social.client.UserClient;
 import connecta.social.client.UserSummaryDto;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -12,6 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class UserLookupService {
+
+    static final int MAX_BATCH_SIZE = 100;
 
     private static final Logger log = LoggerFactory.getLogger(UserLookupService.class);
 
@@ -38,5 +45,38 @@ public class UserLookupService {
                 .filter(user -> user != null && userId.equals(user.id()))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    public Map<UUID, UserSummaryDto> summariesByIds(Collection<UUID> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> distinct = userIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (distinct.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<UUID, UserSummaryDto> result = new HashMap<>();
+        for (int i = 0; i < distinct.size(); i += MAX_BATCH_SIZE) {
+            List<UUID> chunk = distinct.subList(i, Math.min(i + MAX_BATCH_SIZE, distinct.size()));
+            String ids = chunk.stream().map(UUID::toString).collect(Collectors.joining(","));
+            try {
+                List<UserSummaryDto> users = userClient.batchUsers(ids);
+                if (users == null) {
+                    continue;
+                }
+                for (UserSummaryDto user : users) {
+                    if (user != null && user.id() != null) {
+                        result.put(user.id(), user);
+                    }
+                }
+            } catch (RuntimeException ex) {
+                log.warn("User Service enrichment failed for {} ids: {}", chunk.size(), ex.toString());
+            }
+        }
+        return result;
     }
 }

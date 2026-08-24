@@ -5,12 +5,19 @@ import connecta.social.domain.Follow;
 import connecta.social.domain.FollowId;
 import connecta.social.domain.FollowStatus;
 import connecta.social.dto.FollowResponse;
+import connecta.social.dto.FollowStateResponse;
+import connecta.social.dto.FollowStatsResponse;
+import connecta.social.dto.FollowUserResponse;
+import connecta.social.dto.FollowingIdsResponse;
 import connecta.social.dto.PageResponse;
 import connecta.social.repository.FollowRepository;
 import connecta.social.security.AuthenticatedUser;
 import connecta.social.security.SecurityUtils;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -94,14 +101,91 @@ public class FollowService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<FollowResponse> incomingRequests(int page, int size) {
+    public PageResponse<FollowUserResponse> incomingRequests(int page, int size) {
         AuthenticatedUser currentUser = SecurityUtils.requireCurrentUser();
-        return PageResponse.from(
-                followRepository.findByFolloweeIdAndStatusOrderByCreatedAtDesc(
-                        currentUser.id(),
-                        FollowStatus.PENDING,
-                        pageRequest(page, size)
-                ).map(FollowResponse::from)
+        Page<Follow> follows = followRepository.findByFolloweeIdAndStatusOrderByCreatedAtDesc(
+                currentUser.id(),
+                FollowStatus.PENDING,
+                pageRequest(page, size)
+        );
+        return toUserPage(follows, true);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<FollowUserResponse> followers(UUID userId, int page, int size) {
+        Page<Follow> follows = followRepository.findByFolloweeIdAndStatusOrderByCreatedAtDesc(
+                userId,
+                FollowStatus.ACCEPTED,
+                pageRequest(page, size)
+        );
+        return toUserPage(follows, true);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<FollowUserResponse> following(UUID userId, int page, int size) {
+        Page<Follow> follows = followRepository.findByFollowerIdAndStatusOrderByCreatedAtDesc(
+                userId,
+                FollowStatus.ACCEPTED,
+                pageRequest(page, size)
+        );
+        return toUserPage(follows, false);
+    }
+
+    @Transactional(readOnly = true)
+    public FollowStatsResponse stats(UUID userId) {
+        return new FollowStatsResponse(
+                followRepository.countByFolloweeIdAndStatus(userId, FollowStatus.ACCEPTED),
+                followRepository.countByFollowerIdAndStatus(userId, FollowStatus.ACCEPTED)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public FollowingIdsResponse followingIds() {
+        AuthenticatedUser currentUser = SecurityUtils.requireCurrentUser();
+        List<UUID> ids = followRepository.findByFollowerIdAndStatus(currentUser.id(), FollowStatus.ACCEPTED)
+                .stream()
+                .map(Follow::getFolloweeId)
+                .toList();
+        return new FollowingIdsResponse(ids);
+    }
+
+    @Transactional(readOnly = true)
+    public FollowStateResponse isFollowing(UUID userId) {
+        AuthenticatedUser currentUser = SecurityUtils.requireCurrentUser();
+        if (currentUser.id().equals(userId)) {
+            return new FollowStateResponse(false, false);
+        }
+        Follow follow = followRepository.findById(new FollowId(currentUser.id(), userId)).orElse(null);
+        if (follow == null) {
+            return new FollowStateResponse(false, false);
+        }
+        return new FollowStateResponse(
+                follow.getStatus() == FollowStatus.ACCEPTED,
+                follow.getStatus() == FollowStatus.PENDING
+        );
+    }
+
+    private PageResponse<FollowUserResponse> toUserPage(Page<Follow> follows, boolean listFollowers) {
+        List<UUID> ids = follows.getContent().stream()
+                .map(follow -> listFollowers ? follow.getFollowerId() : follow.getFolloweeId())
+                .toList();
+        Map<UUID, UserSummaryDto> users = userLookup.summariesByIds(ids);
+        return PageResponse.from(follows.map(follow -> toUserResponse(follow, listFollowers, users)));
+    }
+
+    private FollowUserResponse toUserResponse(
+            Follow follow,
+            boolean listFollowers,
+            Map<UUID, UserSummaryDto> users
+    ) {
+        UUID userId = listFollowers ? follow.getFollowerId() : follow.getFolloweeId();
+        UserSummaryDto user = users.get(userId);
+        return new FollowUserResponse(
+                userId,
+                user != null ? user.username() : null,
+                user != null ? user.displayName() : null,
+                user != null ? user.profilePictureUrl() : null,
+                follow.getCreatedAt()
         );
     }
 

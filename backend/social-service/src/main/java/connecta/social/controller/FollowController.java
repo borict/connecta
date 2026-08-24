@@ -1,6 +1,10 @@
 package connecta.social.controller;
 
 import connecta.social.dto.FollowResponse;
+import connecta.social.dto.FollowStateResponse;
+import connecta.social.dto.FollowStatsResponse;
+import connecta.social.dto.FollowUserResponse;
+import connecta.social.dto.FollowingIdsResponse;
 import connecta.social.dto.PageResponse;
 import connecta.social.service.FollowService;
 import connecta.social.service.FollowService.FollowResult;
@@ -45,11 +49,49 @@ public class FollowController {
 
     @Operation(summary = "List incoming follow requests", description = "PENDING requests where the current user is the followee.")
     @GetMapping("/me/requests")
-    public PageResponse<FollowResponse> incomingRequests(
+    public PageResponse<FollowUserResponse> incomingRequests(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         return followService.incomingRequests(page, size);
+    }
+
+    @Operation(summary = "IDs the current user follows", description = "ACCEPTED followees only. Used for feed aggregation.")
+    @GetMapping("/me/following")
+    public FollowingIdsResponse followingIds() {
+        return followService.followingIds();
+    }
+
+    @Operation(summary = "List followers", description = "ACCEPTED followers only.")
+    @GetMapping("/{userId}/followers")
+    public PageResponse<FollowUserResponse> followers(
+            @PathVariable UUID userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return followService.followers(userId, page, size);
+    }
+
+    @Operation(summary = "List following", description = "ACCEPTED followees only.")
+    @GetMapping("/{userId}/following")
+    public PageResponse<FollowUserResponse> following(
+            @PathVariable UUID userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return followService.following(userId, page, size);
+    }
+
+    @Operation(summary = "Follow stats", description = "ACCEPTED counts only.")
+    @GetMapping("/{userId}/stats")
+    public FollowStatsResponse stats(@PathVariable UUID userId) {
+        return followService.stats(userId);
+    }
+
+    @Operation(summary = "Whether the current user follows userId")
+    @GetMapping("/{userId}/is-following")
+    public FollowStateResponse isFollowing(@PathVariable UUID userId) {
+        return followService.isFollowing(userId);
     }
 
     @Operation(summary = "Accept a follow request", description = "Only the private profile owner. userId is the follower. Idempotent if already ACCEPTED.")

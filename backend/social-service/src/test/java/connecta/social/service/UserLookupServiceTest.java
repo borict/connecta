@@ -2,12 +2,17 @@ package connecta.social.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import connecta.social.client.UserClient;
 import connecta.social.client.UserSummaryDto;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,5 +70,40 @@ class UserLookupServiceTest {
                     assertThat(statusEx.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
                     assertThat(statusEx.getReason()).isEqualTo("User Service unavailable");
                 });
+    }
+
+    @Test
+    void summariesByIds_mapsBatchResult() {
+        UUID userId = UUID.randomUUID();
+        when(userClient.batchUsers(userId.toString())).thenReturn(List.of(
+                new UserSummaryDto(userId, "ana", "Ana", "http://pic", false)
+        ));
+
+        Map<UUID, UserSummaryDto> result = lookup.summariesByIds(List.of(userId));
+
+        assertThat(result.get(userId).username()).isEqualTo("ana");
+        assertThat(result.get(userId).displayName()).isEqualTo("Ana");
+    }
+
+    @Test
+    void summariesByIds_userServiceDown_returnsEmptyMap() {
+        UUID userId = UUID.randomUUID();
+        when(userClient.batchUsers(anyString())).thenThrow(new RuntimeException("connection refused"));
+
+        Map<UUID, UserSummaryDto> result = lookup.summariesByIds(List.of(userId));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void summariesByIds_chunksRequestsOverMaxBatchSize() {
+        List<UUID> ids = IntStream.range(0, 101)
+                .mapToObj(i -> UUID.randomUUID())
+                .toList();
+        when(userClient.batchUsers(anyString())).thenReturn(List.of());
+
+        lookup.summariesByIds(ids);
+
+        verify(userClient, times(2)).batchUsers(anyString());
     }
 }

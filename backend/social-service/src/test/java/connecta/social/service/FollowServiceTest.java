@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,10 +15,15 @@ import connecta.social.domain.FollowId;
 import connecta.social.domain.FollowStatus;
 import connecta.social.domain.Role;
 import connecta.social.dto.FollowResponse;
+import connecta.social.dto.FollowStateResponse;
+import connecta.social.dto.FollowStatsResponse;
+import connecta.social.dto.FollowUserResponse;
+import connecta.social.dto.FollowingIdsResponse;
 import connecta.social.dto.PageResponse;
 import connecta.social.repository.FollowRepository;
 import connecta.social.security.AuthenticatedUser;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -57,6 +63,7 @@ class FollowServiceTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities())
         );
+        lenient().when(userLookup.summariesByIds(any())).thenReturn(Map.of());
     }
 
     @AfterEach
@@ -239,12 +246,111 @@ class FollowServiceTest {
                 pageRequest
         )).thenReturn(new PageImpl<>(List.of(pending), pageRequest, 1));
 
-        PageResponse<FollowResponse> page = followService.incomingRequests(0, 20);
+        PageResponse<FollowUserResponse> page = followService.incomingRequests(0, 20);
 
         assertThat(page.content()).hasSize(1);
-        assertThat(page.content().getFirst().followerId()).isEqualTo(followerId);
-        assertThat(page.content().getFirst().status()).isEqualTo(FollowStatus.PENDING);
+        assertThat(page.content().getFirst().userId()).isEqualTo(followerId);
         assertThat(page.totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void followers_accepted_enrichesUsername() {
+        Follow accepted = new Follow(followerId, followeeId, FollowStatus.ACCEPTED);
+        PageRequest pageRequest = PageRequest.of(0, 20);
+        when(followRepository.findByFolloweeIdAndStatusOrderByCreatedAtDesc(
+                followeeId,
+                FollowStatus.ACCEPTED,
+                pageRequest
+        )).thenReturn(new PageImpl<>(List.of(accepted), pageRequest, 1));
+        when(userLookup.summariesByIds(any())).thenReturn(Map.of(
+                followerId,
+                new UserSummaryDto(followerId, "tamara", "Tamara", "http://pic", false)
+        ));
+
+        PageResponse<FollowUserResponse> page = followService.followers(followeeId, 0, 20);
+
+        assertThat(page.content()).hasSize(1);
+        assertThat(page.content().getFirst().userId()).isEqualTo(followerId);
+        assertThat(page.content().getFirst().username()).isEqualTo("tamara");
+        assertThat(page.content().getFirst().displayName()).isEqualTo("Tamara");
+    }
+
+    @Test
+    void following_accepted_usesFolloweeId() {
+        Follow accepted = new Follow(followerId, followeeId, FollowStatus.ACCEPTED);
+        PageRequest pageRequest = PageRequest.of(0, 20);
+        when(followRepository.findByFollowerIdAndStatusOrderByCreatedAtDesc(
+                followerId,
+                FollowStatus.ACCEPTED,
+                pageRequest
+        )).thenReturn(new PageImpl<>(List.of(accepted), pageRequest, 1));
+
+        PageResponse<FollowUserResponse> page = followService.following(followerId, 0, 20);
+
+        assertThat(page.content().getFirst().userId()).isEqualTo(followeeId);
+        assertThat(page.content().getFirst().username()).isNull();
+    }
+
+    @Test
+    void stats_countsAcceptedOnly() {
+        when(followRepository.countByFolloweeIdAndStatus(followeeId, FollowStatus.ACCEPTED)).thenReturn(3L);
+        when(followRepository.countByFollowerIdAndStatus(followeeId, FollowStatus.ACCEPTED)).thenReturn(5L);
+
+        FollowStatsResponse stats = followService.stats(followeeId);
+
+        assertThat(stats.followers()).isEqualTo(3);
+        assertThat(stats.following()).isEqualTo(5);
+    }
+
+    @Test
+    void followingIds_returnsAcceptedFolloweeIds() {
+        when(followRepository.findByFollowerIdAndStatus(followerId, FollowStatus.ACCEPTED))
+                .thenReturn(List.of(new Follow(followerId, followeeId, FollowStatus.ACCEPTED)));
+
+        FollowingIdsResponse response = followService.followingIds();
+
+        assertThat(response.ids()).containsExactly(followeeId);
+    }
+
+    @Test
+    void isFollowing_accepted() {
+        when(followRepository.findById(eq(new FollowId(followerId, followeeId))))
+                .thenReturn(Optional.of(new Follow(followerId, followeeId, FollowStatus.ACCEPTED)));
+
+        FollowStateResponse state = followService.isFollowing(followeeId);
+
+        assertThat(state.following()).isTrue();
+        assertThat(state.pending()).isFalse();
+    }
+
+    @Test
+    void isFollowing_pending() {
+        when(followRepository.findById(eq(new FollowId(followerId, followeeId))))
+                .thenReturn(Optional.of(new Follow(followerId, followeeId, FollowStatus.PENDING)));
+
+        FollowStateResponse state = followService.isFollowing(followeeId);
+
+        assertThat(state.following()).isFalse();
+        assertThat(state.pending()).isTrue();
+    }
+
+    @Test
+    void isFollowing_none() {
+        when(followRepository.findById(eq(new FollowId(followerId, followeeId)))).thenReturn(Optional.empty());
+
+        FollowStateResponse state = followService.isFollowing(followeeId);
+
+        assertThat(state.following()).isFalse();
+        assertThat(state.pending()).isFalse();
+    }
+
+    @Test
+    void isFollowing_self_isNeither() {
+        FollowStateResponse state = followService.isFollowing(followerId);
+
+        assertThat(state.following()).isFalse();
+        assertThat(state.pending()).isFalse();
+        verify(followRepository, never()).findById(any());
     }
 
     private void authenticate(UUID userId) {
