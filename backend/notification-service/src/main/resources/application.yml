@@ -5,9 +5,9 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://localhost:5433/notifications_db
-    username: connecta
-    password: connecta
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/notifications_db
+    username: ${POSTGRES_USER:connecta}
+    password: ${POSTGRES_PASSWORD:connecta}
   jpa:
     hibernate:
       ddl-auto: none
@@ -16,3 +16,29 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+connecta:
+  jwt:
+    secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
+  azure:
+    servicebus:
+      connection-string: ${AZURE_SERVICEBUS_CONNECTION_STRING:}
+      topic: ${AZURE_SERVICEBUS_TOPIC:connecta-events}
+      subscription: ${AZURE_SERVICEBUS_SUBSCRIPTION:notification-service}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
