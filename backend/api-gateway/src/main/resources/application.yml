@@ -54,6 +54,10 @@ spring:
           uri: ${SOCIAL_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/feed,/api/feed/**
+        - id: notification-api
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/notifications/**
 
 connecta:
   jwt:
