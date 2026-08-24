@@ -28,12 +28,17 @@ spring:
           user-service:
             connectTimeout: 2000
             readTimeout: 2000
+          post-service:
+            connectTimeout: 2000
+            readTimeout: 2000
 
 connecta:
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
   user-service:
     url: ${USER_SERVICE_URL:http://localhost:8081}
+  post-service:
+    url: ${POST_SERVICE_URL:http://localhost:8082}
 
 resilience4j:
   circuitbreaker:
@@ -43,9 +48,16 @@ resilience4j:
         failureRateThreshold: 50
         waitDurationInOpenState: 5s
         permittedNumberOfCallsInHalfOpenState: 2
+      post-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 2
   timelimiter:
     instances:
       user-service:
+        timeoutDuration: 2s
+      post-service:
         timeoutDuration: 2s
 
 management:

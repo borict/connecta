@@ -22,3 +22,5 @@ Rules:
 User Service is source of truth for `isPrivate`; Social calls it via Feign when handling follow.
 
 User and Post ask Social whether the viewer is an `ACCEPTED` follower before showing a full private profile or that user's posts. If Social is down, they hide private content instead of leaking it.
+
+Feed (`GET /api/feed`) lives in Social: ACCEPTED following IDs + self → Post `by-authors`. Post down → empty page.

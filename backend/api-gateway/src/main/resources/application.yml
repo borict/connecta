@@ -53,7 +53,7 @@ spring:
         - id: social-feed
           uri: ${SOCIAL_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/feed/**
+            - Path=/api/feed,/api/feed/**
 
 connecta:
   jwt:

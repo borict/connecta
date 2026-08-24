@@ -103,6 +103,8 @@ Social Service should call User Service (Feign) for `isPrivate` when handling fo
 
 User Service and Post Service ask Social (`GET /api/social/{userId}/is-following`, and Post uses `GET /api/social/me/following` for batch) whether the viewer has an `ACCEPTED` follow. If Social (or User, for Post `isPrivate`) is down, do not leak: treat the viewer as not a follower / the profile as private.
 
+Home feed is `GET /api/feed` on Social: ACCEPTED followee IDs plus the viewer, then Post `GET /api/posts/by-authors`. If Post is down, Social returns an empty page (not 500).
+
 ## Auth headers (Gateway → services)
 
 | Header | Source |
