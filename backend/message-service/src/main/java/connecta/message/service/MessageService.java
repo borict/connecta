@@ -1,6 +1,7 @@
 package connecta.message.service;
 
 import connecta.message.domain.Conversation;
+import connecta.message.domain.ConversationParticipant;
 import connecta.message.domain.ConversationRead;
 import connecta.message.domain.DirectPair;
 import connecta.message.domain.DirectPairId;
@@ -11,17 +12,20 @@ import connecta.message.dto.MessageResponse;
 import connecta.message.dto.PageResponse;
 import connecta.message.messaging.MessageEventPublisher;
 import connecta.message.messaging.MessageSentEvent;
+import connecta.message.repository.ConversationParticipantRepository;
 import connecta.message.repository.ConversationReadRepository;
 import connecta.message.repository.ConversationRepository;
 import connecta.message.repository.DirectPairRepository;
 import connecta.message.repository.MessageRepository;
 import connecta.message.security.AuthenticatedUser;
 import connecta.message.security.SecurityUtils;
+import connecta.message.websocket.ChatDestinations;
 import java.time.Instant;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -35,36 +39,53 @@ public class MessageService {
 
     private final DirectPairRepository directPairRepository;
     private final ConversationRepository conversationRepository;
+    private final ConversationParticipantRepository participantRepository;
     private final MessageRepository messageRepository;
     private final ConversationReadRepository readRepository;
     private final MessageEventPublisher eventPublisher;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public MessageService(
             DirectPairRepository directPairRepository,
             ConversationRepository conversationRepository,
+            ConversationParticipantRepository participantRepository,
             MessageRepository messageRepository,
             ConversationReadRepository readRepository,
-            MessageEventPublisher eventPublisher
+            MessageEventPublisher eventPublisher,
+            SimpMessagingTemplate messagingTemplate
     ) {
         this.directPairRepository = directPairRepository;
         this.conversationRepository = conversationRepository;
+        this.participantRepository = participantRepository;
         this.messageRepository = messageRepository;
         this.readRepository = readRepository;
         this.eventPublisher = eventPublisher;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @Transactional
     public MessageResponse send(UUID otherUserId, CreateMessageRequest request) {
         AuthenticatedUser currentUser = SecurityUtils.requireCurrentUser();
         UUID conversationId = requireConversationId(currentUser.id(), otherUserId);
-        String content = normalizeContent(request == null ? null : request.content());
-
-        Message saved = messageRepository.save(
-                new Message(UUID.randomUUID(), conversationId, currentUser.id(), content)
+        return persistAndNotify(
+                conversationId,
+                otherUserId,
+                currentUser,
+                normalizeContent(request == null ? null : request.content())
         );
-        touchConversation(conversationId, currentUser.id());
-        publishMessageSent(saved, otherUserId);
-        return MessageResponse.from(saved);
+    }
+
+    @Transactional
+    public MessageResponse sendInConversation(UUID conversationId, String rawContent) {
+        AuthenticatedUser currentUser = SecurityUtils.requireCurrentUser();
+        if (conversationId == null
+                || !participantRepository.existsByConversationIdAndUserId(conversationId, currentUser.id())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found");
+        }
+        UUID recipientId = participantRepository.findByConversationIdAndUserIdNot(conversationId, currentUser.id())
+                .map(ConversationParticipant::getUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found"));
+        return persistAndNotify(conversationId, recipientId, currentUser, normalizeContent(rawContent));
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +116,22 @@ public class MessageService {
         readRepository.save(read);
     }
 
+    private MessageResponse persistAndNotify(
+            UUID conversationId,
+            UUID recipientId,
+            AuthenticatedUser sender,
+            String content
+    ) {
+        Message saved = messageRepository.save(
+                new Message(UUID.randomUUID(), conversationId, sender.id(), content)
+        );
+        touchConversation(conversationId, sender.id());
+        publishMessageSent(saved, recipientId);
+        MessageResponse response = MessageResponse.from(saved);
+        broadcast(response);
+        return response;
+    }
+
     private UUID requireConversationId(UUID currentUserId, UUID otherUserId) {
         if (currentUserId.equals(otherUserId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot start a conversation with yourself");
@@ -115,6 +152,14 @@ public class MessageService {
             ));
         } catch (RuntimeException ex) {
             log.warn("MESSAGE_SENT publish failed; message still succeeded. cause={}", ex.toString());
+        }
+    }
+
+    private void broadcast(MessageResponse payload) {
+        try {
+            messagingTemplate.convertAndSend(ChatDestinations.conversationTopic(payload.conversationId()), payload);
+        } catch (RuntimeException ex) {
+            log.warn("WebSocket broadcast failed; message still succeeded. cause={}", ex.toString());
         }
     }
 

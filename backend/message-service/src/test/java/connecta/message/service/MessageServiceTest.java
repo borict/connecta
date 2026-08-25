@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import connecta.message.domain.Conversation;
+import connecta.message.domain.ConversationParticipant;
 import connecta.message.domain.ConversationRead;
 import connecta.message.domain.DirectPair;
 import connecta.message.domain.Message;
@@ -19,11 +20,13 @@ import connecta.message.dto.MessageResponse;
 import connecta.message.dto.PageResponse;
 import connecta.message.messaging.MessageEventPublisher;
 import connecta.message.messaging.MessageSentEvent;
+import connecta.message.repository.ConversationParticipantRepository;
 import connecta.message.repository.ConversationReadRepository;
 import connecta.message.repository.ConversationRepository;
 import connecta.message.repository.DirectPairRepository;
 import connecta.message.repository.MessageRepository;
 import connecta.message.security.AuthenticatedUser;
+import connecta.message.websocket.ChatDestinations;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
@@ -52,6 +56,9 @@ class MessageServiceTest {
     private ConversationRepository conversationRepository;
 
     @Mock
+    private ConversationParticipantRepository participantRepository;
+
+    @Mock
     private MessageRepository messageRepository;
 
     @Mock
@@ -59,6 +66,9 @@ class MessageServiceTest {
 
     @Mock
     private MessageEventPublisher eventPublisher;
+
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
 
     private MessageService messageService;
     private UUID currentUserId;
@@ -70,9 +80,11 @@ class MessageServiceTest {
         messageService = new MessageService(
                 directPairRepository,
                 conversationRepository,
+                participantRepository,
                 messageRepository,
                 readRepository,
-                eventPublisher
+                eventPublisher,
+                messagingTemplate
         );
         currentUserId = UUID.fromString("11111111-1111-1111-1111-111111111111");
         otherUserId = UUID.fromString("22222222-2222-2222-2222-222222222222");
@@ -113,6 +125,10 @@ class MessageServiceTest {
         assertThat(event.messageId()).isEqualTo(saved.getId());
         assertThat(event.senderId()).isEqualTo(currentUserId);
         assertThat(event.recipientId()).isEqualTo(otherUserId);
+        verify(messagingTemplate).convertAndSend(
+                eq(ChatDestinations.conversationTopic(conversationId)),
+                any(MessageResponse.class)
+        );
     }
 
     @Test
@@ -127,6 +143,67 @@ class MessageServiceTest {
 
         assertThat(response.content()).isEqualTo("Hey");
         verify(messageRepository).save(any(Message.class));
+    }
+
+    @Test
+    void send_broadcastFails_messageStillSucceeds() {
+        stubExistingConversation();
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(conversationRepository.findById(conversationId))
+                .thenReturn(Optional.of(new Conversation(conversationId)));
+        doThrow(new RuntimeException("broker down"))
+                .when(messagingTemplate)
+                .convertAndSend(any(String.class), any(MessageResponse.class));
+
+        MessageResponse response = messageService.send(otherUserId, new CreateMessageRequest("Hey"));
+
+        assertThat(response.content()).isEqualTo("Hey");
+        verify(messageRepository).save(any(Message.class));
+        verify(eventPublisher).publishMessageSent(any(MessageSentEvent.class));
+    }
+
+    @Test
+    void sendInConversation_persistsWhenParticipant() {
+        when(participantRepository.existsByConversationIdAndUserId(conversationId, currentUserId)).thenReturn(true);
+        when(participantRepository.findByConversationIdAndUserIdNot(conversationId, currentUserId))
+                .thenReturn(Optional.of(new ConversationParticipant(conversationId, otherUserId)));
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(conversationRepository.findById(conversationId))
+                .thenReturn(Optional.of(new Conversation(conversationId)));
+
+        MessageResponse response = messageService.sendInConversation(conversationId, "  WS hi  ");
+
+        assertThat(response.content()).isEqualTo("WS hi");
+        assertThat(response.conversationId()).isEqualTo(conversationId);
+        verify(eventPublisher).publishMessageSent(any(MessageSentEvent.class));
+        verify(messagingTemplate).convertAndSend(
+                eq(ChatDestinations.conversationTopic(conversationId)),
+                any(MessageResponse.class)
+        );
+    }
+
+    @Test
+    void sendInConversation_notParticipant_returnsNotFound() {
+        when(participantRepository.existsByConversationIdAndUserId(conversationId, currentUserId)).thenReturn(false);
+
+        assertThatThrownBy(() -> messageService.sendInConversation(conversationId, "Hey"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode())
+                        .isEqualTo(HttpStatus.NOT_FOUND));
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void sendInConversation_missingOtherParticipant_returnsNotFound() {
+        when(participantRepository.existsByConversationIdAndUserId(conversationId, currentUserId)).thenReturn(true);
+        when(participantRepository.findByConversationIdAndUserIdNot(conversationId, currentUserId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> messageService.sendInConversation(conversationId, "Hey"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode())
+                        .isEqualTo(HttpStatus.NOT_FOUND));
+        verify(messageRepository, never()).save(any());
     }
 
     @Test
