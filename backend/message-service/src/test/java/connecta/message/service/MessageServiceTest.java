@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,6 +17,8 @@ import connecta.message.domain.Role;
 import connecta.message.dto.CreateMessageRequest;
 import connecta.message.dto.MessageResponse;
 import connecta.message.dto.PageResponse;
+import connecta.message.messaging.MessageEventPublisher;
+import connecta.message.messaging.MessageSentEvent;
 import connecta.message.repository.ConversationReadRepository;
 import connecta.message.repository.ConversationRepository;
 import connecta.message.repository.DirectPairRepository;
@@ -54,6 +57,9 @@ class MessageServiceTest {
     @Mock
     private ConversationReadRepository readRepository;
 
+    @Mock
+    private MessageEventPublisher eventPublisher;
+
     private MessageService messageService;
     private UUID currentUserId;
     private UUID otherUserId;
@@ -65,7 +71,8 @@ class MessageServiceTest {
                 directPairRepository,
                 conversationRepository,
                 messageRepository,
-                readRepository
+                readRepository,
+                eventPublisher
         );
         currentUserId = UUID.fromString("11111111-1111-1111-1111-111111111111");
         otherUserId = UUID.fromString("22222222-2222-2222-2222-222222222222");
@@ -98,6 +105,28 @@ class MessageServiceTest {
         assertThat(saved.getContent()).isEqualTo("Hey!");
         assertThat(response.content()).isEqualTo("Hey!");
         verify(conversationRepository).save(any(Conversation.class));
+        ArgumentCaptor<MessageSentEvent> eventCaptor = ArgumentCaptor.forClass(MessageSentEvent.class);
+        verify(eventPublisher).publishMessageSent(eventCaptor.capture());
+        MessageSentEvent event = eventCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(MessageSentEvent.TYPE);
+        assertThat(event.conversationId()).isEqualTo(conversationId);
+        assertThat(event.messageId()).isEqualTo(saved.getId());
+        assertThat(event.senderId()).isEqualTo(currentUserId);
+        assertThat(event.recipientId()).isEqualTo(otherUserId);
+    }
+
+    @Test
+    void send_publisherFails_messageStillSucceeds() {
+        stubExistingConversation();
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(conversationRepository.findById(conversationId))
+                .thenReturn(Optional.of(new Conversation(conversationId)));
+        doThrow(new RuntimeException("bus down")).when(eventPublisher).publishMessageSent(any());
+
+        MessageResponse response = messageService.send(otherUserId, new CreateMessageRequest("Hey"));
+
+        assertThat(response.content()).isEqualTo("Hey");
+        verify(messageRepository).save(any(Message.class));
     }
 
     @Test
@@ -110,6 +139,7 @@ class MessageServiceTest {
                     assertThat(statusEx.getReason()).isEqualTo("Cannot start a conversation with yourself");
                 });
         verify(messageRepository, never()).save(any());
+        verify(eventPublisher, never()).publishMessageSent(any());
     }
 
     @Test
@@ -138,6 +168,7 @@ class MessageServiceTest {
                     assertThat(statusEx.getReason()).isEqualTo("Content must not be blank");
                 });
         verify(messageRepository, never()).save(any());
+        verify(eventPublisher, never()).publishMessageSent(any());
     }
 
     @Test

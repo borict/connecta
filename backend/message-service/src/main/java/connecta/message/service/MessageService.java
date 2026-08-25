@@ -9,6 +9,8 @@ import connecta.message.domain.Message;
 import connecta.message.dto.CreateMessageRequest;
 import connecta.message.dto.MessageResponse;
 import connecta.message.dto.PageResponse;
+import connecta.message.messaging.MessageEventPublisher;
+import connecta.message.messaging.MessageSentEvent;
 import connecta.message.repository.ConversationReadRepository;
 import connecta.message.repository.ConversationRepository;
 import connecta.message.repository.DirectPairRepository;
@@ -17,6 +19,8 @@ import connecta.message.security.AuthenticatedUser;
 import connecta.message.security.SecurityUtils;
 import java.time.Instant;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,21 +31,26 @@ public class MessageService {
 
     static final int MAX_CONTENT_LENGTH = 2000;
 
+    private static final Logger log = LoggerFactory.getLogger(MessageService.class);
+
     private final DirectPairRepository directPairRepository;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final ConversationReadRepository readRepository;
+    private final MessageEventPublisher eventPublisher;
 
     public MessageService(
             DirectPairRepository directPairRepository,
             ConversationRepository conversationRepository,
             MessageRepository messageRepository,
-            ConversationReadRepository readRepository
+            ConversationReadRepository readRepository,
+            MessageEventPublisher eventPublisher
     ) {
         this.directPairRepository = directPairRepository;
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.readRepository = readRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -54,6 +63,7 @@ public class MessageService {
                 new Message(UUID.randomUUID(), conversationId, currentUser.id(), content)
         );
         touchConversation(conversationId, currentUser.id());
+        publishMessageSent(saved, otherUserId);
         return MessageResponse.from(saved);
     }
 
@@ -93,6 +103,19 @@ public class MessageService {
         return directPairRepository.findById(new DirectPairId(pair.userAId(), pair.userBId()))
                 .map(DirectPair::getConversationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found"));
+    }
+
+    private void publishMessageSent(Message message, UUID recipientId) {
+        try {
+            eventPublisher.publishMessageSent(MessageSentEvent.of(
+                    message.getConversationId(),
+                    message.getId(),
+                    message.getSenderId(),
+                    recipientId
+            ));
+        } catch (RuntimeException ex) {
+            log.warn("MESSAGE_SENT publish failed; message still succeeded. cause={}", ex.toString());
+        }
     }
 
     private void touchConversation(UUID conversationId, UUID updatedBy) {
