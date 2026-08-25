@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -37,6 +38,43 @@ class GatewayAuthSupportTest {
         assertThat(support.isPublic(request(HttpMethod.PUT, "/api/notifications/read-all"))).isFalse();
         assertThat(support.isPublic(request(HttpMethod.GET, "/api/conversations"))).isFalse();
         assertThat(support.isPublic(request(HttpMethod.POST, "/api/conversations/users/11111111-1111-1111-1111-111111111111"))).isFalse();
+        assertThat(support.isPublic(request(HttpMethod.GET, "/ws"))).isFalse();
+        assertThat(support.isWebSocketPath(request(HttpMethod.GET, "/ws"))).isTrue();
+        assertThat(support.isWebSocketPath(request(HttpMethod.GET, "/api/conversations"))).isFalse();
+    }
+
+    @Test
+    void extractToken_bearerWinsOverQuery() {
+        ServerHttpRequest request = MockServerHttpRequest.get("http://localhost:8080/ws?token=query-token")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer header-token")
+                .build();
+
+        assertThat(support.extractToken(request)).isEqualTo("header-token");
+    }
+
+    @Test
+    void extractToken_websocketQueryToken_isAccepted() {
+        ServerHttpRequest request = MockServerHttpRequest.get("http://localhost:8080/ws?token=query-token")
+                .build();
+
+        assertThat(support.extractToken(request)).isEqualTo("query-token");
+        assertThat(support.withoutQueryToken(request).getQueryParams().containsKey("token")).isFalse();
+    }
+
+    @Test
+    void extractToken_queryTokenOnRest_isIgnored() {
+        ServerHttpRequest request = MockServerHttpRequest.get("http://localhost:8080/api/conversations?token=query-token")
+                .build();
+
+        assertThat(support.extractToken(request)).isNull();
+    }
+
+    @Test
+    void extractToken_blankQueryToken_isIgnored() {
+        ServerHttpRequest request = MockServerHttpRequest.get("http://localhost:8080/ws?token=")
+                .build();
+
+        assertThat(support.extractToken(request)).isNull();
     }
 
     private static ServerHttpRequest request(HttpMethod method, String path) {

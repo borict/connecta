@@ -3,6 +3,7 @@ package connecta.gateway.security;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import connecta.gateway.exception.ApiErrorResponse;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -13,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 @Component
@@ -71,5 +73,37 @@ public class GatewayAuthSupport {
         }
         String token = header.substring(7).trim();
         return token.isEmpty() ? null : token;
+    }
+
+    public String extractToken(ServerHttpRequest request) {
+        String bearer = extractBearerToken(request);
+        if (bearer != null) {
+            return bearer;
+        }
+        if (!isWebSocketPath(request)) {
+            return null;
+        }
+        String queryToken = request.getQueryParams().getFirst("token");
+        if (queryToken == null) {
+            return null;
+        }
+        String trimmed = queryToken.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    public boolean isWebSocketPath(ServerHttpRequest request) {
+        String path = request.getURI().getPath();
+        return "/ws".equals(path) || path.startsWith("/ws/");
+    }
+
+    public ServerHttpRequest withoutQueryToken(ServerHttpRequest request) {
+        if (!request.getQueryParams().containsKey("token")) {
+            return request;
+        }
+        URI uri = UriComponentsBuilder.fromUri(request.getURI())
+                .replaceQueryParam("token")
+                .build(true)
+                .toUri();
+        return request.mutate().uri(uri).build();
     }
 }

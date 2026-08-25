@@ -1,4 +1,4 @@
-# Connecta — domain decisions (User / Auth / Social / Posts / Notifications)
+# Connecta — domain decisions (User / Auth / Social / Posts / Notifications / Messages)
 
 Locked for implementation. Private master plan PDF may lag; this file is the repo source of truth for these rules.
 
@@ -76,6 +76,7 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 - Gateway strips/overwrites any client-supplied `User-Id` / `Username` / `User-Role`
   (and legacy `X-User-*` variants) before forwarding.
 - Public through gateway: `POST /api/auth/register`, `POST /api/auth/login`, `/media/**`, actuator health/info.
+- `/ws` handshake requires JWT (`Authorization: Bearer` or `?token=`). Query token is accepted only on `/ws/**` and stripped before forwarding.
 - `/api/admin/**` requires JWT role `ADMIN` at the gateway (user-service also enforces).
 - Client entrypoint: `http://localhost:8080`
 
@@ -130,6 +131,22 @@ Events on topic `connecta-events` (subscription `notification-service`). Publish
 Self-events and unknown types are ignored. Duplicate Azure `messageId` is stored as `source_message_id` (unique) so retries do not insert twice. Messages are generic English strings; `actorId` is returned for later FE enrichment. No Feign to User Service.
 
 Handler results for the Azure processor: persist → complete; ignore → complete; invalid payload → dead-letter; transient DB errors → abandon (subscription `maxDeliveryCount` → DLQ).
+
+## Direct messages
+
+Message Service (`:8084`, `messages_db`) owns 1:1 conversations. Gateway routes: `/api/conversations/**` and `/ws/**`.
+
+REST (JWT, current user only; `page`/`size` like other services; page 0 = newest messages first):
+
+- `GET /api/conversations`
+- `POST /api/conversations/users/{userId}` — **201** new, **200** existing; self → **400**; other user missing / User Service down → **404** / **503**
+- `GET /api/conversations/users/{userId}` — **404** if the pair does not exist yet
+- `GET/POST /api/conversations/users/{userId}/messages` — content max 2000
+- `PUT /api/conversations/users/{userId}/read` — **204**, idempotent
+
+WebSocket: raw STOMP `/ws` (no SockJS). Gateway handshake JWT via Bearer or `?token=`. STOMP `CONNECT` still sends `Authorization: Bearer`. `SEND /app/chat.send` `{ conversationId, content }`; subscribe `/topic/conversations.{conversationId}` (participants only). HTTP send uses the same persist path and also broadcasts. `/user/queue/notifications` is skipped. Broadcast is fail-soft.
+
+Feign only to User Service batch lookup (list enrichment is fail-soft). No Feign to Social. `MESSAGE_SENT` mapping is in the Notifications table above.
 
 ## Auth headers (Gateway → services)
 

@@ -62,6 +62,10 @@ spring:
           uri: ${MESSAGE_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/conversations,/api/conversations/**
+        - id: message-ws
+          uri: ${MESSAGE_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/ws,/ws/**
 
 connecta:
   jwt:

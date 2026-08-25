@@ -28,7 +28,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange.mutate().request(cleaned).build());
         }
 
-        String token = authSupport.extractBearerToken(cleaned);
+        String token = authSupport.extractToken(cleaned);
         if (token == null) {
             return authSupport.writeError(exchange, HttpStatus.UNAUTHORIZED, "Authentication required");
         }
@@ -43,7 +43,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             return authSupport.writeError(exchange, HttpStatus.FORBIDDEN, "Access denied");
         }
 
-        ServerHttpRequest authenticated = cleaned.mutate()
+        ServerHttpRequest authenticated = authSupport.withoutQueryToken(cleaned).mutate()
                 .header(AuthHeaders.USER_ID, principal.userId())
                 .header(AuthHeaders.USERNAME, principal.username())
                 .header(AuthHeaders.USER_ROLE, principal.role())

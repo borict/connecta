@@ -118,19 +118,21 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 
 - `.env` se ne commituje. Koristi `.env.example` kao šablon.
 - Azure Service Bus i Azure Blob Storage nisu u Docker Compose-u (cloud servisi).
-- Domen odluke (User model, admin, privatni profili, JWT headeri, post slike, notifikacije): [docs/domain-decisions.md](docs/domain-decisions.md).
+- Domen odluke (User model, admin, privatni profili, JWT headeri, post slike, notifikacije, poruke): [docs/domain-decisions.md](docs/domain-decisions.md).
 - Follow model (PENDING/ACCEPTED, feed, `USER_FOLLOWED`): [docs/social-follow-model.md](docs/social-follow-model.md).
 - Seed admin (User Service Flyway): username `admin`, password `Admin123!`.
-- API entrypoint: Gateway `http://localhost:8080` (User `8081`, Post `8082`, Social `8083`, Notification `8085`).
+- API entrypoint: Gateway `http://localhost:8080` (User `8081`, Post `8082`, Social `8083`, Message `8084`, Notification `8085`).
 - Swagger (User Service): [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
 - Swagger (Post Service): [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html)
 - Swagger (Social Service): [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html)
+- Swagger (Message Service): [http://localhost:8084/swagger-ui.html](http://localhost:8084/swagger-ui.html)
 - Swagger (Notification Service): [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html)
 - Gateway **nema** Swagger UI.
 - Faza 1: User Service + Gateway + Swagger.
 - Faza 2: Post Service (CRUD, likes, comments, local post images, User Service enrichment, Azure Service Bus publisher).
 - Faza 3: Social Service (follow/unfollow, private-profile requests, lists, home feed, `USER_FOLLOWED`).
 - Faza 4: Notification Service (REST lista/read/unread-count, Azure consumer na `connecta-events` / `notification-service`, fail-soft publisheri).
+- Faza 5: Message Service (1:1 konverzacije, REST poruke, STOMP `/ws`, `MESSAGE_SENT`).
 
 ### Smoke test (Faza 1)
 
@@ -176,6 +178,20 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 6. `PUT /api/notifications/{randomUuid}/read` → **404** `ApiErrorResponse`; `PUT /api/notifications/read-all` → **204**
 7. Gateway: `http://localhost:8080/api/notifications/**` sa Bearer tokenom
 8. Bez JWT-a → **401** `ApiErrorResponse`
-9. End-to-end Azure: setuj `AZURE_SERVICEBUS_CONNECTION_STRING` (topic `connecta-events`, subscription `notification-service`). Bez stringa consumer je no-op i lista ostaje prazna; like/follow i dalje uspevaju. Sa stringom: drugi user like/comment na tvoj post, ili `ACCEPTED` follow → tvoja lista dobija `LIKE` / `COMMENT` / `FOLLOW`; unread-count raste; `PUT .../{id}/read` → `read: true`; ponovo read → **200**. Self-like/comment/follow ne prave notifikaciju. `MESSAGE_SENT` se ignoriše do Faze 5.
+9. End-to-end Azure: setuj `AZURE_SERVICEBUS_CONNECTION_STRING` (topic `connecta-events`, subscription `notification-service`). Bez stringa consumer je no-op i lista ostaje prazna; like/follow i dalje uspevaju. Sa stringom: drugi user like/comment na tvoj post, ili `ACCEPTED` follow → tvoja lista dobija `LIKE` / `COMMENT` / `FOLLOW`; unread-count raste; `PUT .../{id}/read` → `read: true`; ponovo read → **200**. Self-like/comment/follow ne prave notifikaciju. `MESSAGE_SENT` vidi smoke Faza 5.
+
+### Smoke test (Faza 5)
+
+1. `docker compose up -d` (Postgres host port **5433**)
+2. Pokreni `user-service`, `message-service`, `notification-service` i `api-gateway` (isti `JWT_SECRET`). IntelliJ: Application `MessageServiceApplication`, working directory `backend/message-service`, EnvFile plugin na root `.env` (Spring sam ne učitava `.env`)
+3. User Swagger: login dva naloga (`admin` / `Admin123!` i registrovani user) → kopiraj tokene
+4. Message Swagger [http://localhost:8084/swagger-ui.html](http://localhost:8084/swagger-ui.html) → **Authorize** (Bearer). Tagovi: **Conversations**, **Messages**
+5. `POST /api/conversations/users/{otherUserId}` → **201**; ponovo → **200**. Self → **400**. Nepostojeći user → **404**
+6. `GET /api/conversations` — `unreadCount`, last message, `otherUsername` (null ako User Service ne radi)
+7. `POST /api/conversations/users/{otherUserId}/messages` `{ "content": "Hey" }` → **201**; `GET .../messages` page 0 = najnovije prvo; `PUT .../read` → **204**
+8. Gateway REST: `http://localhost:8080/api/conversations/**` sa Bearer tokenom. Bez JWT-a → **401** `ApiErrorResponse`
+9. WebSocket (raw STOMP, **bez SockJS**): handshake `ws://localhost:8080/ws?token=<JWT>` ili `Authorization: Bearer` na upgrade. STOMP `CONNECT` i dalje šalje `Authorization: Bearer <JWT>`. `SUBSCRIBE /topic/conversations.{conversationId}` (samo učesnik). `SEND /app/chat.send` body `{ "conversationId": "...", "content": "hi" }` → isti `MessageResponse` kao HTTP
+10. Dve sesije: A pošalje preko WS, B vidi na topic-u. HTTP send takođe stigne na WS. Gateway `/ws` bez tokena → **401**
+11. Azure: sa `AZURE_SERVICEBUS_CONNECTION_STRING`, send (HTTP ili WS) → recipient vidi notifikaciju `MESSAGE` / `CONVERSATION` / `"Someone sent you a message"`; self-send se ne dešava na 1:1. Bez stringa send i dalje uspeva (fail-soft)
 
 
