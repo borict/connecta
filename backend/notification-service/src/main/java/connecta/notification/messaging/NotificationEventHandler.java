@@ -20,6 +20,7 @@ public class NotificationEventHandler {
     static final String LIKED_MESSAGE = "Someone liked your post";
     static final String COMMENTED_MESSAGE = "Someone commented on your post";
     static final String FOLLOWED_MESSAGE = "Someone started following you";
+    static final String MESSAGE_SENT_MESSAGE = "Someone sent you a message";
 
     private static final Logger log = LoggerFactory.getLogger(NotificationEventHandler.class);
 
@@ -51,6 +52,7 @@ public class NotificationEventHandler {
             case PostLikedEvent.TYPE -> handleLiked(body, sourceMessageId);
             case PostCommentedEvent.TYPE -> handleCommented(body, sourceMessageId);
             case UserFollowedEvent.TYPE -> handleFollowed(body, sourceMessageId);
+            case MessageSentEvent.TYPE -> handleMessageSent(body, sourceMessageId);
             default -> {
                 log.debug("Ignoring unknown notification event type={}", type);
                 yield EventHandleResult.IGNORED;
@@ -129,6 +131,31 @@ public class NotificationEventHandler {
                 ResourceType.USER,
                 event.followerId(),
                 FOLLOWED_MESSAGE,
+                normalizeSourceId(sourceMessageId)
+        ));
+    }
+
+    private EventHandleResult handleMessageSent(String body, String sourceMessageId) {
+        MessageSentEvent event;
+        try {
+            event = objectMapper.readValue(body, MessageSentEvent.class);
+        } catch (JsonProcessingException ex) {
+            return EventHandleResult.INVALID;
+        }
+        if (event.conversationId() == null || event.senderId() == null || event.recipientId() == null) {
+            return EventHandleResult.INVALID;
+        }
+        if (event.senderId().equals(event.recipientId())) {
+            return EventHandleResult.IGNORED;
+        }
+        return persist(new Notification(
+                UUID.randomUUID(),
+                event.recipientId(),
+                event.senderId(),
+                NotificationType.MESSAGE,
+                ResourceType.CONVERSATION,
+                event.conversationId(),
+                MESSAGE_SENT_MESSAGE,
                 normalizeSourceId(sourceMessageId)
         ));
     }

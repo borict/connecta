@@ -118,15 +118,16 @@ REST (JWT, current user only; `page`/`size` like other services):
 - `PUT /api/notifications/{id}/read` — idempotent; missing or another user's id → **404**
 - `PUT /api/notifications/read-all` — **204**
 
-Events on topic `connecta-events` (subscription `notification-service`). Publishers (Post / Social) stay fail-soft. Mapping:
+Events on topic `connecta-events` (subscription `notification-service`). Publishers (Post / Social / Message) stay fail-soft. Mapping:
 
 | Event | `type` | `resource_type` | `resource_id` | recipient | actor |
 |-------|--------|-----------------|---------------|-----------|-------|
 | `POST_LIKED` | `LIKE` | `POST` | `postId` | `postAuthorId` | `actorId` |
 | `POST_COMMENTED` | `COMMENT` | `POST` | `postId` | `postAuthorId` | `actorId` |
 | `USER_FOLLOWED` | `FOLLOW` | `USER` | `followerId` | `followeeId` | `followerId` |
+| `MESSAGE_SENT` | `MESSAGE` | `CONVERSATION` | `conversationId` | `recipientId` | `senderId` |
 
-Self-events and unknown types (including `MESSAGE_SENT` until Phase 5) are ignored. Duplicate Azure `messageId` is stored as `source_message_id` (unique) so retries do not insert twice. Messages are generic English strings; `actorId` is returned for later FE enrichment. No Feign to User Service. `MESSAGE` / `CONVERSATION` exist on the schema for Phase 5.
+Self-events and unknown types are ignored. Duplicate Azure `messageId` is stored as `source_message_id` (unique) so retries do not insert twice. Messages are generic English strings; `actorId` is returned for later FE enrichment. No Feign to User Service.
 
 Handler results for the Azure processor: persist → complete; ignore → complete; invalid payload → dead-letter; transient DB errors → abandon (subscription `maxDeliveryCount` → DLQ).
 

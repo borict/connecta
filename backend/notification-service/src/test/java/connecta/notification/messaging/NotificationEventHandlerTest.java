@@ -150,12 +150,68 @@ class NotificationEventHandlerTest {
     }
 
     @Test
-    void unknownType_isIgnored() {
+    void messageSent_createsMessageNotification() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID recipientId = UUID.randomUUID();
+        String body = objectMapper.writeValueAsString(new MessageSentEvent(
+                MessageSentEvent.TYPE,
+                Instant.parse("2026-08-25T00:00:00Z"),
+                conversationId,
+                UUID.randomUUID(),
+                senderId,
+                recipientId
+        ));
+
+        EventHandleResult result = handler.handle(MessageSentEvent.TYPE, body, "msg-dm");
+
+        assertThat(result).isEqualTo(EventHandleResult.CREATED);
+        Notification saved = capturedNotification();
+        assertThat(saved.getRecipientId()).isEqualTo(recipientId);
+        assertThat(saved.getActorId()).isEqualTo(senderId);
+        assertThat(saved.getType()).isEqualTo(NotificationType.MESSAGE);
+        assertThat(saved.getResourceType()).isEqualTo(ResourceType.CONVERSATION);
+        assertThat(saved.getResourceId()).isEqualTo(conversationId);
+        assertThat(saved.getMessage()).isEqualTo(NotificationEventHandler.MESSAGE_SENT_MESSAGE);
+        assertThat(saved.getSourceMessageId()).isEqualTo("msg-dm");
+        assertThat(saved.isRead()).isFalse();
+    }
+
+    @Test
+    void selfMessage_isIgnored() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String body = objectMapper.writeValueAsString(new MessageSentEvent(
+                MessageSentEvent.TYPE,
+                Instant.now(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                userId,
+                userId
+        ));
+
+        assertThat(handler.handle(MessageSentEvent.TYPE, body, "msg-self-dm"))
+                .isEqualTo(EventHandleResult.IGNORED);
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void messageSent_missingRequiredFields_isInvalid() {
         String body = """
                 {"eventType":"MESSAGE_SENT","occurredAt":"2026-08-25T00:00:00Z","conversationId":"%s"}
                 """.formatted(UUID.randomUUID());
 
-        assertThat(handler.handle("MESSAGE_SENT", body, "msg-dm"))
+        assertThat(handler.handle(MessageSentEvent.TYPE, body, "msg-incomplete-dm"))
+                .isEqualTo(EventHandleResult.INVALID);
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void unknownType_isIgnored() {
+        String body = """
+                {"eventType":"SOMETHING_ELSE","occurredAt":"2026-08-25T00:00:00Z"}
+                """;
+
+        assertThat(handler.handle("SOMETHING_ELSE", body, "msg-unknown"))
                 .isEqualTo(EventHandleResult.IGNORED);
         verify(notificationRepository, never()).save(any());
     }
