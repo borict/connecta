@@ -2,6 +2,7 @@ package connecta.message.repository;
 
 import connecta.message.domain.ConversationParticipant;
 import connecta.message.domain.ConversationParticipantId;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,6 +12,8 @@ public interface ConversationParticipantRepository
         extends JpaRepository<ConversationParticipant, ConversationParticipantId> {
 
     List<ConversationParticipant> findByConversationId(UUID conversationId);
+
+    List<ConversationParticipant> findByConversationIdIn(Collection<UUID> conversationIds);
 
     Optional<ConversationParticipant> findByConversationIdAndUserIdNot(UUID conversationId, UUID userId);
 

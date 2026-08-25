@@ -58,6 +58,10 @@ spring:
           uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
           predicates:
             - Path=/api/notifications/**
+        - id: message-api
+          uri: ${MESSAGE_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/conversations,/api/conversations/**
 
 connecta:
   jwt:

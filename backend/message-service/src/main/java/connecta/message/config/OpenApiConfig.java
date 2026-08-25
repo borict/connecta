@@ -57,6 +57,9 @@ public class OpenApiConfig {
                                 .content(errorContent))
                         .addResponses("NotFound", new ApiResponse()
                                 .description("Not Found")
+                                .content(errorContent))
+                        .addResponses("ServiceUnavailable", new ApiResponse()
+                                .description("Service Unavailable")
                                 .content(errorContent)));
     }
 }

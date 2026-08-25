@@ -15,7 +15,7 @@ class OpenApiConfigTest {
         assertThat(api.getComponents().getSecuritySchemes()).containsKey(OpenApiConfig.BEARER_AUTH);
         assertThat(api.getComponents().getSchemas()).containsKey("ApiErrorResponse");
         assertThat(api.getComponents().getResponses())
-                .containsKeys("BadRequest", "Unauthorized", "Forbidden", "NotFound");
+                .containsKeys("BadRequest", "Unauthorized", "Forbidden", "NotFound", "ServiceUnavailable");
         assertThat(api.getSecurity())
                 .anySatisfy(requirement -> assertThat(requirement).containsKey(OpenApiConfig.BEARER_AUTH));
     }
