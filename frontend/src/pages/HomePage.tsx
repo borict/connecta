@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchFeed } from '../api/feed'
 import { errorMessage } from '../api/errorMessage'
 import { PostCard } from '../components/PostCard'
+import { PostComposer } from '../components/PostComposer'
 import type { FeedPostDto } from '../types/api'
 
 export function HomePage() {
@@ -37,6 +38,10 @@ export function HomePage() {
     }
   }, [])
 
+  function handleCreated(post: FeedPostDto) {
+    setPosts((current) => [post, ...current])
+  }
+
   return (
     <>
       <h1 className="h4 mb-3">Home</h1>
@@ -46,14 +51,16 @@ export function HomePage() {
             <span className="visually-hidden">Loading feed…</span>
           </div>
         </div>
-      ) : null}
-      {error ? <div className="alert alert-danger">{error}</div> : null}
-      {!loading && !error && posts.length === 0 ? (
-        <p className="text-secondary mb-0">Your feed is empty. Follow people or create a post.</p>
-      ) : null}
-      {!loading && !error
-        ? posts.map((post) => <PostCard key={post.id} post={post} />)
-        : null}
+      ) : (
+        <>
+          <PostComposer onCreated={handleCreated} />
+          {error ? <div className="alert alert-danger">{error}</div> : null}
+          {!error && posts.length === 0 ? (
+            <p className="text-secondary mb-0">Your feed is empty. Follow people or create a post.</p>
+          ) : null}
+          {!error ? posts.map((post) => <PostCard key={post.id} post={post} />) : null}
+        </>
+      )}
     </>
   )
 }
