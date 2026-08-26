@@ -1,5 +1,12 @@
-import { api, jsonPart } from './client'
-import type { LikeCountResponse, LikedResponse, LikeResponse, PostResponse } from '../types/api'
+import { api, jsonPart, withQuery } from './client'
+import type {
+  CommentResponse,
+  LikeCountResponse,
+  LikedResponse,
+  LikeResponse,
+  PageResponse,
+  PostResponse,
+} from '../types/api'
 
 export async function createPost(content: string, image?: File | null): Promise<PostResponse> {
   const formData = new FormData()
@@ -24,4 +31,22 @@ export function fetchLiked(postId: string): Promise<LikedResponse> {
 
 export function fetchLikeCount(postId: string): Promise<LikeCountResponse> {
   return api.get<LikeCountResponse>(`/api/posts/${postId}/likes/count`)
+}
+
+export const COMMENT_PAGE_SIZE = 20
+
+export function fetchComments(
+  postId: string,
+  page = 0,
+  size = COMMENT_PAGE_SIZE,
+): Promise<PageResponse<CommentResponse>> {
+  return api.get<PageResponse<CommentResponse>>(withQuery(`/api/posts/${postId}/comments`, { page, size }))
+}
+
+export function createComment(postId: string, content: string): Promise<CommentResponse> {
+  return api.post<CommentResponse>(`/api/posts/${postId}/comments`, { content })
+}
+
+export function deleteComment(commentId: string): Promise<void> {
+  return api.delete(`/api/posts/comments/${commentId}`)
 }

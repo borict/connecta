@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
+import { CommentThread } from './CommentThread'
 import { LikeButton } from './LikeButton'
 import { formatPostTime } from '../lib/formatTime'
 import type { FeedPostDto } from '../types/api'
@@ -44,12 +45,9 @@ export function PostCard({ post }: PostCardProps) {
         {post.imageUrl ? (
           <img src={post.imageUrl} alt="" className="mt-3 rounded w-100" style={{ maxHeight: 520, objectFit: 'cover' }} />
         ) : null}
-        <footer className="d-flex gap-3 mt-3 small align-items-center">
+        <footer className="d-flex flex-wrap gap-3 mt-3 small align-items-center">
           <LikeButton postId={post.id} initialCount={post.likeCount} />
-          <span className="text-secondary">
-            <i className="bi bi-chat me-1" aria-hidden="true" />
-            {post.commentCount}
-          </span>
+          <CommentThread postId={post.id} initialCount={post.commentCount} />
         </footer>
       </div>
     </article>
