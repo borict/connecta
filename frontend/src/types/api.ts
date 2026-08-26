@@ -235,8 +235,12 @@ export type ChatSendRequest = {
   content: string
 }
 
-export function isLimitedProfile(
+export function isPublicProfile(
   profile: UserProfileResponse,
-): profile is UserLimitedResponse {
-  return !('bio' in profile)
+): profile is UserPublicResponse {
+  return 'bio' in profile
+}
+
+export function isLimitedProfile(profile: UserProfileResponse): boolean {
+  return !isPublicProfile(profile)
 }

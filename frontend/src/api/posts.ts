@@ -54,3 +54,13 @@ export function deleteComment(commentId: string): Promise<void> {
 export function deletePost(postId: string): Promise<void> {
   return api.delete(`/api/posts/${postId}`)
 }
+
+export const USER_POSTS_PAGE_SIZE = 20
+
+export function fetchUserPosts(
+  userId: string,
+  page = 0,
+  size = USER_POSTS_PAGE_SIZE,
+): Promise<PageResponse<PostResponse>> {
+  return api.get<PageResponse<PostResponse>>(withQuery(`/api/posts/user/${userId}`, { page, size }))
+}
