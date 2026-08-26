@@ -4,7 +4,11 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './layouts/AppLayout'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
+import { MessagesPage } from './pages/MessagesPage'
+import { NotificationsPage } from './pages/NotificationsPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
+import { SearchPage } from './pages/SearchPage'
 
 export default function App() {
   return (
@@ -16,6 +20,10 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/u/:username" element={<ProfilePage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
