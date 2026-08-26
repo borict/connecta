@@ -42,6 +42,10 @@ export function HomePage() {
     setPosts((current) => [post, ...current])
   }
 
+  function handleDeleted(postId: string) {
+    setPosts((current) => current.filter((post) => post.id !== postId))
+  }
+
   return (
     <>
       <h1 className="h4 mb-3">Home</h1>
@@ -58,7 +62,7 @@ export function HomePage() {
           {!error && posts.length === 0 ? (
             <p className="text-secondary mb-0">Your feed is empty. Follow people or create a post.</p>
           ) : null}
-          {!error ? posts.map((post) => <PostCard key={post.id} post={post} />) : null}
+          {!error ? posts.map((post) => <PostCard key={post.id} post={post} onDeleted={handleDeleted} />) : null}
         </>
       )}
     </>

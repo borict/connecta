@@ -50,3 +50,7 @@ export function createComment(postId: string, content: string): Promise<CommentR
 export function deleteComment(commentId: string): Promise<void> {
   return api.delete(`/api/posts/comments/${commentId}`)
 }
+
+export function deletePost(postId: string): Promise<void> {
+  return api.delete(`/api/posts/${postId}`)
+}
