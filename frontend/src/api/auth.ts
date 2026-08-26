@@ -30,3 +30,7 @@ export async function registerAndLogin(
     password: data.password,
   })
 }
+
+export function fetchCurrentUser(): Promise<UserMeResponse> {
+  return api.get<UserMeResponse>('/api/users/me')
+}

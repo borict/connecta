@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerAndLogin } from '../api/auth'
 import { errorMessage } from '../api/errorMessage'
+import { useAuth } from '../auth/AuthContext'
 import type { Gender, RegisterRequest } from '../types/api'
 
 function dateYearsAgo(years: number): string {
@@ -19,6 +20,7 @@ function optionalText(value: string): string | undefined {
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const { establishSession } = useAuth()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -50,7 +52,8 @@ export function RegisterPage() {
         gender: gender || undefined,
         isPrivate,
       }
-      await registerAndLogin(data, profilePicture)
+      const response = await registerAndLogin(data, profilePicture)
+      establishSession(response.user)
       navigate('/', { replace: true })
     } catch (err) {
       setError(errorMessage(err, 'Could not register'))

@@ -2,9 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { login } from '../api/auth'
 import { errorMessage } from '../api/errorMessage'
+import { useAuth } from '../auth/AuthContext'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const { establishSession } = useAuth()
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -15,10 +17,11 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login({
+      const response = await login({
         usernameOrEmail: usernameOrEmail.trim(),
         password,
       })
+      establishSession(response.user)
       navigate('/', { replace: true })
     } catch (err) {
       setError(errorMessage(err, 'Could not log in'))

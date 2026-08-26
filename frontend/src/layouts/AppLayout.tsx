@@ -1,10 +1,13 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 
 function navClassName({ isActive }: { isActive: boolean }): string {
   return isActive ? 'nav-link active' : 'nav-link'
 }
 
 export function AppLayout() {
+  const { user, logout } = useAuth()
+
   return (
     <>
       <nav className="navbar navbar-expand-lg bg-white border-bottom sticky-top">
@@ -24,21 +27,19 @@ export function AppLayout() {
             <span className="navbar-toggler-icon" />
           </button>
           <div className="collapse navbar-collapse" id="mainNav">
-            <ul className="navbar-nav ms-auto mb-2 mb-lg-0">
+            <ul className="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center">
               <li className="nav-item">
                 <NavLink className={navClassName} to="/" end>
                   Home
                 </NavLink>
               </li>
               <li className="nav-item">
-                <NavLink className={navClassName} to="/login">
-                  Log in
-                </NavLink>
+                <span className="navbar-text me-lg-2">{user?.displayName}</span>
               </li>
               <li className="nav-item">
-                <NavLink className={navClassName} to="/register">
-                  Register
-                </NavLink>
+                <button className="btn btn-link nav-link" type="button" onClick={logout}>
+                  Log out
+                </button>
               </li>
             </ul>
           </div>
