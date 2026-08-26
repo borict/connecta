@@ -1,13 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { errorMessage } from '../api/errorMessage'
 import { fetchUserPosts } from '../api/posts'
-import { fetchFollowStats } from '../api/social'
+import { fetchFollowState, fetchFollowStats } from '../api/social'
 import { fetchUserByUsername } from '../api/users'
+import { useAuth } from '../auth/AuthContext'
 import { Avatar } from '../components/Avatar'
+import { FollowButton } from '../components/FollowButton'
 import { PostCard } from '../components/PostCard'
-import type { FeedPostDto, FollowStatsResponse, Gender, UserProfileResponse } from '../types/api'
+import type {
+  FeedPostDto,
+  FollowStateResponse,
+  FollowStatsResponse,
+  Gender,
+  UserProfileResponse,
+} from '../types/api'
 import { isLimitedProfile, isPublicProfile } from '../types/api'
 
 function genderLabel(gender: Gender | null): string | null {
@@ -29,37 +37,36 @@ function countLabel(count: number, singular: string, plural: string): string {
 
 export function ProfilePage() {
   const { username } = useParams()
+  const { user: me } = useAuth()
   const [profile, setProfile] = useState<UserProfileResponse | null>(null)
   const [stats, setStats] = useState<FollowStatsResponse | null>(null)
+  const [followState, setFollowState] = useState<FollowStateResponse | null>(null)
   const [posts, setPosts] = useState<FeedPostDto[]>([])
   const [postTotal, setPostTotal] = useState(0)
   const [privatePosts, setPrivatePosts] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      setError(null)
-      setProfile(null)
-      setStats(null)
-      setPosts([])
-      setPostTotal(0)
-      setPrivatePosts(false)
-      setLoading(true)
-
+  const load = useCallback(
+    async (silent = false) => {
       const handle = username?.trim()
       if (!handle) {
         setError('User not found')
+        setProfile(null)
         setLoading(false)
         return
+      }
+
+      setError(null)
+      if (!silent) {
+        setLoading(true)
       }
 
       try {
         const user = await fetchUserByUsername(handle)
         const limited = isLimitedProfile(user)
-        const [nextStats, nextPosts] = await Promise.all([
+        const isOwn = Boolean(me && user.id === me.id)
+        const [nextStats, nextPosts, nextFollow] = await Promise.all([
           fetchFollowStats(user.id).catch(() => null),
           limited
             ? Promise.resolve<'private'>('private')
@@ -69,12 +76,13 @@ export function ProfilePage() {
                 }
                 throw err
               }),
+          isOwn
+            ? Promise.resolve(null)
+            : fetchFollowState(user.id).catch(() => ({ following: false, pending: false })),
         ])
-        if (cancelled) {
-          return
-        }
         setProfile(user)
         setStats(nextStats)
+        setFollowState(nextFollow)
         if (nextPosts === 'private') {
           setPrivatePosts(true)
           setPosts([])
@@ -85,26 +93,36 @@ export function ProfilePage() {
           setPostTotal(nextPosts.totalElements)
         }
       } catch (err) {
-        if (cancelled) {
-          return
-        }
         if (err instanceof ApiError && err.status === 404) {
           setError('User not found')
         } else {
           setError(errorMessage(err, 'Could not load profile'))
         }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
+        if (!silent) {
+          setProfile(null)
         }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [username, me],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function run() {
+      await load(false)
+      if (cancelled) {
+        return
       }
     }
 
-    void load()
+    void run()
     return () => {
       cancelled = true
     }
-  }, [username])
+  }, [load])
 
   function handleDeleted(postId: string) {
     setPosts((current) => current.filter((post) => post.id !== postId))
@@ -129,6 +147,7 @@ export function ProfilePage() {
   const gender = publicProfile ? genderLabel(publicProfile.gender) : null
   const bio = publicProfile?.bio
   const location = publicProfile?.location
+  const isOwn = Boolean(me && profile.id === me.id)
 
   return (
     <>
@@ -145,6 +164,16 @@ export function ProfilePage() {
             {profile.isPrivate ? <span className="badge text-bg-light border">Private</span> : null}
           </div>
           <div className="text-secondary mb-2">@{profile.username}</div>
+          {isOwn || !followState ? null : (
+            <div className="mb-2">
+              <FollowButton
+                userId={profile.id}
+                following={followState.following}
+                pending={followState.pending}
+                onChanged={() => load(true)}
+              />
+            </div>
+          )}
           <div className="d-flex flex-wrap gap-3 small mb-2">
             {!publicProfile ? null : <span>{countLabel(postTotal, 'post', 'posts')}</span>}
             {stats ? (
@@ -174,7 +203,11 @@ export function ProfilePage() {
           <div className="card-body text-center py-5">
             <i className="bi bi-lock fs-3 text-secondary" aria-hidden="true" />
             <p className="fw-semibold mb-1 mt-2">This account is private</p>
-            <p className="text-secondary small mb-0">Only accepted followers can see their posts.</p>
+            <p className="text-secondary small mb-0">
+              {followState?.pending
+                ? 'Your follow request is pending.'
+                : 'Only accepted followers can see their posts.'}
+            </p>
           </div>
         </div>
       ) : posts.length === 0 ? (
