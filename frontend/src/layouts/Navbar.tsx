@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Avatar } from '../components/Avatar'
+import { useMessageUnread } from '../messages/MessageUnreadContext'
 import { useUnreadCount } from '../notifications/UnreadCountContext'
 
 function navClassName({ isActive }: { isActive: boolean }): string {
@@ -15,6 +16,7 @@ function iconNavClassName({ isActive }: { isActive: boolean }): string {
 export function Navbar() {
   const { user, logout } = useAuth()
   const { unreadCount } = useUnreadCount()
+  const { unreadMessages } = useMessageUnread()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
@@ -86,8 +88,21 @@ export function Navbar() {
               </NavLink>
             </li>
             <li className="nav-item">
-              <NavLink className={iconNavClassName} to="/messages" title="Messages" aria-label="Messages">
-                <i className="bi bi-chat-dots fs-5" />
+              <NavLink
+                className={iconNavClassName}
+                to="/messages"
+                title="Messages"
+                aria-label={unreadMessages > 0 ? 'Messages, unread' : 'Messages'}
+              >
+                <span className="position-relative d-inline-block">
+                  <i className="bi bi-chat-dots fs-5" />
+                  {unreadMessages > 0 ? (
+                    <span
+                      className="position-absolute top-0 start-100 translate-middle bg-danger rounded-circle border border-white"
+                      style={{ width: 10, height: 10 }}
+                    />
+                  ) : null}
+                </span>
               </NavLink>
             </li>
             <li className="nav-item">
