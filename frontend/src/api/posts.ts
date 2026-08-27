@@ -64,3 +64,7 @@ export function fetchUserPosts(
 ): Promise<PageResponse<PostResponse>> {
   return api.get<PageResponse<PostResponse>>(withQuery(`/api/posts/user/${userId}`, { page, size }))
 }
+
+export function fetchPost(postId: string): Promise<PostResponse> {
+  return api.get<PostResponse>(`/api/posts/${encodeURIComponent(postId)}`)
+}

@@ -26,3 +26,11 @@ export function updateMe(
   }
   return api.putMultipart<UserMeResponse>('/api/users/me', formData)
 }
+
+export function fetchUsersByIds(ids: string[]): Promise<UserSummaryResponse[]> {
+  const unique = [...new Set(ids.filter((id) => id.length > 0))]
+  if (unique.length === 0) {
+    return Promise.resolve([])
+  }
+  return api.get<UserSummaryResponse[]>(withQuery('/api/users/batch', { ids: unique.join(',') }))
+}

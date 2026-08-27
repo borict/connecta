@@ -8,6 +8,7 @@ import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { MessagesPage } from './pages/MessagesPage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { PostPage } from './pages/PostPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SearchPage } from './pages/SearchPage'
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/posts/:postId" element={<PostPage />} />
           <Route path="/requests" element={<FollowRequestsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/u/:username" element={<ProfilePage />} />

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Avatar } from '../components/Avatar'
+import { useUnreadCount } from '../notifications/UnreadCountContext'
 
 function navClassName({ isActive }: { isActive: boolean }): string {
   return isActive ? 'nav-link active' : 'nav-link'
@@ -13,6 +14,7 @@ function iconNavClassName({ isActive }: { isActive: boolean }): string {
 
 export function Navbar() {
   const { user, logout } = useAuth()
+  const { unreadCount } = useUnreadCount()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
@@ -89,8 +91,24 @@ export function Navbar() {
               </NavLink>
             </li>
             <li className="nav-item">
-              <NavLink className={iconNavClassName} to="/notifications" title="Notifications" aria-label="Notifications">
-                <i className="bi bi-bell fs-5" />
+              <NavLink
+                className={iconNavClassName}
+                to="/notifications"
+                title="Notifications"
+                aria-label={
+                  unreadCount > 0
+                    ? `Notifications, ${unreadCount} unread`
+                    : 'Notifications'
+                }
+              >
+                <span className="position-relative d-inline-block">
+                  <i className="bi bi-bell fs-5" />
+                  {unreadCount > 0 ? (
+                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  ) : null}
+                </span>
               </NavLink>
             </li>
             <li className="nav-item dropdown">
