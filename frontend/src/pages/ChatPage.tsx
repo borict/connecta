@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   fetchMessages,
@@ -12,6 +12,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { formatPostTime } from '../lib/formatTime'
 import { useMessageUnread } from '../messages/MessageUnreadContext'
+import { useChatSocket } from '../messages/useChatSocket'
 import type { ConversationResponse, MessageResponse } from '../types/api'
 
 export function ChatPage() {
@@ -28,6 +29,22 @@ export function ChatPage() {
   const [sending, setSending] = useState(false)
 
   const otherUserId = userId?.trim() ?? ''
+  const conversationId = conversation?.conversationId ?? null
+
+  const handleIncoming = useCallback(
+    (message: MessageResponse) => {
+      if (conversationId && message.conversationId !== conversationId) {
+        return
+      }
+      setMessages((current) => (current.some((item) => item.id === message.id) ? current : [...current, message]))
+      if (me && message.senderId !== me.id) {
+        void markConversationRead(otherUserId).then(() => refreshUnreadMessages())
+      }
+    },
+    [conversationId, me, otherUserId, refreshUnreadMessages],
+  )
+
+  const { connected } = useChatSocket(conversationId, handleIncoming)
 
   useEffect(() => {
     let cancelled = false
@@ -99,7 +116,7 @@ export function ChatPage() {
     setSending(true)
     try {
       const created = await sendMessage(otherUserId, content)
-      setMessages((current) => [...current, created])
+      setMessages((current) => (current.some((item) => item.id === created.id) ? current : [...current, created]))
       setDraft('')
     } catch (err) {
       setSendError(errorMessage(err, 'Could not send message'))
@@ -152,7 +169,12 @@ export function ChatPage() {
           ) : (
             <div className="fw-semibold text-truncate">{displayName}</div>
           )}
-          {username ? <div className="text-secondary small">@{username}</div> : null}
+          <div className="d-flex align-items-center gap-2">
+            {username ? <div className="text-secondary small">@{username}</div> : null}
+            <span className={`small ${connected ? 'text-success' : 'text-secondary'}`}>
+              {connected ? 'Live' : 'Connecting…'}
+            </span>
+          </div>
         </div>
       </div>
       <div ref={listRef} className="flex-grow-1 overflow-auto pe-1" style={{ maxHeight: '55vh' }}>

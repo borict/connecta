@@ -8,9 +8,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageDeliveryException;
+import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.ExecutorChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -18,7 +19,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Component
-public class StompAuthChannelInterceptor implements ChannelInterceptor {
+public class StompAuthChannelInterceptor implements ExecutorChannelInterceptor {
 
     private final JwtService jwtService;
     private final ConversationParticipantRepository participantRepository;
@@ -48,9 +49,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             accessor.setUser(authentication);
         }
 
-        if (accessor.getUser() instanceof Authentication authentication) {
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-        }
+        bindSecurityContext(accessor);
 
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             authorizeSubscribe(accessor);
@@ -59,6 +58,22 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             throw new MessageDeliveryException("Authentication required");
         }
         return message;
+    }
+
+    @Override
+    public Message<?> beforeHandle(Message<?> message, MessageChannel channel, MessageHandler handler) {
+        bindSecurityContext(MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class));
+        return message;
+    }
+
+    @Override
+    public void afterMessageHandled(
+            Message<?> message,
+            MessageChannel channel,
+            MessageHandler handler,
+            Exception ex
+    ) {
+        SecurityContextHolder.clearContext();
     }
 
     private AuthenticatedUser authenticate(StompHeaderAccessor accessor) {
@@ -89,5 +104,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             return user;
         }
         return null;
+    }
+
+    private static void bindSecurityContext(StompHeaderAccessor accessor) {
+        if (accessor != null && accessor.getUser() instanceof Authentication authentication) {
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        }
     }
 }

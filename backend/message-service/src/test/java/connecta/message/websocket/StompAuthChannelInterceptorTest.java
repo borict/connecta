@@ -143,6 +143,19 @@ class StompAuthChannelInterceptorTest {
                 .hasMessage("Authentication required");
     }
 
+    @Test
+    void beforeHandle_copiesSessionUserToSecurityContext() {
+        Message<byte[]> message = stompMessage(StompCommand.SEND, accessor -> {
+            accessor.setDestination("/app/chat.send");
+            accessor.setUser(authentication());
+        });
+
+        interceptor.beforeHandle(message, channel, (incoming) -> {
+        });
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo(user);
+    }
+
     private Authentication authentication() {
         return new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
     }

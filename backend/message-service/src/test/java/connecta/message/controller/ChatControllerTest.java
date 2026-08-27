@@ -24,14 +24,14 @@ class ChatControllerTest {
     void send_delegatesToService() {
         UUID conversationId = UUID.randomUUID();
 
-        chatController.send(new ChatSendRequest(conversationId, "hi"));
+        chatController.send(new ChatSendRequest(conversationId, "hi"), null);
 
         verify(messageService).sendInConversation(conversationId, "hi");
     }
 
     @Test
     void send_nullRequest_delegatesNulls() {
-        chatController.send(null);
+        chatController.send(null, null);
 
         verify(messageService).sendInConversation(null, null);
     }
