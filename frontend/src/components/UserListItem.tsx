@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import type { FollowUserResponse } from '../types/api'
 import { Avatar } from './Avatar'
 
+export type UserListPerson = {
+  username: string | null
+  displayName: string | null
+  profilePictureUrl: string | null
+}
+
 type UserListItemProps = {
-  user: FollowUserResponse
+  user: UserListPerson
   actions?: ReactNode
 }
 
