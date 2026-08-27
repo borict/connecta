@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { GuestRoute } from './auth/GuestRoute'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './layouts/AppLayout'
+import { FollowListPage } from './pages/FollowListPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { MessagesPage } from './pages/MessagesPage'
@@ -24,6 +25,8 @@ export default function App() {
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/u/:username" element={<ProfilePage />} />
+          <Route path="/u/:username/followers" element={<FollowListPage kind="followers" />} />
+          <Route path="/u/:username/following" element={<FollowListPage kind="following" />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

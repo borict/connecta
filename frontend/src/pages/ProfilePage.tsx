@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { errorMessage } from '../api/errorMessage'
 import { fetchUserPosts } from '../api/posts'
@@ -178,8 +178,18 @@ export function ProfilePage() {
             {!publicProfile ? null : <span>{countLabel(postTotal, 'post', 'posts')}</span>}
             {stats ? (
               <>
-                <span>{countLabel(stats.followers, 'follower', 'followers')}</span>
-                <span>{countLabel(stats.following, 'following', 'following')}</span>
+                <Link
+                  to={`/u/${encodeURIComponent(profile.username)}/followers`}
+                  className="text-decoration-none text-reset"
+                >
+                  {countLabel(stats.followers, 'follower', 'followers')}
+                </Link>
+                <Link
+                  to={`/u/${encodeURIComponent(profile.username)}/following`}
+                  className="text-decoration-none text-reset"
+                >
+                  {countLabel(stats.following, 'following', 'following')}
+                </Link>
               </>
             ) : null}
           </div>

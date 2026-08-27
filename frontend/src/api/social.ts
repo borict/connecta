@@ -1,5 +1,13 @@
-import { api } from './client'
-import type { FollowResponse, FollowStateResponse, FollowStatsResponse } from '../types/api'
+import { api, withQuery } from './client'
+import type {
+  FollowResponse,
+  FollowStateResponse,
+  FollowStatsResponse,
+  FollowUserResponse,
+  PageResponse,
+} from '../types/api'
+
+export const FOLLOW_PAGE_SIZE = 20
 
 export function fetchFollowStats(userId: string): Promise<FollowStatsResponse> {
   return api.get<FollowStatsResponse>(`/api/social/${userId}/stats`)
@@ -15,4 +23,20 @@ export function followUser(userId: string): Promise<FollowResponse> {
 
 export function unfollowUser(userId: string): Promise<void> {
   return api.delete(`/api/social/${userId}`)
+}
+
+export function fetchFollowers(
+  userId: string,
+  page = 0,
+  size = FOLLOW_PAGE_SIZE,
+): Promise<PageResponse<FollowUserResponse>> {
+  return api.get<PageResponse<FollowUserResponse>>(withQuery(`/api/social/${userId}/followers`, { page, size }))
+}
+
+export function fetchFollowing(
+  userId: string,
+  page = 0,
+  size = FOLLOW_PAGE_SIZE,
+): Promise<PageResponse<FollowUserResponse>> {
+  return api.get<PageResponse<FollowUserResponse>>(withQuery(`/api/social/${userId}/following`, { page, size }))
 }
