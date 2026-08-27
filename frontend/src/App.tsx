@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { GuestRoute } from './auth/GuestRoute'
 import { ProtectedRoute } from './auth/ProtectedRoute'
+import { AdminRoute } from './auth/AdminRoute'
 import { AppLayout } from './layouts/AppLayout'
+import { AdminPage } from './pages/AdminPage'
 import { FollowListPage } from './pages/FollowListPage'
 import { FollowRequestsPage } from './pages/FollowRequestsPage'
 import { HomePage } from './pages/HomePage'
@@ -35,6 +37,9 @@ export default function App() {
           <Route path="/u/:username" element={<ProfilePage />} />
           <Route path="/u/:username/followers" element={<FollowListPage kind="followers" />} />
           <Route path="/u/:username/following" element={<FollowListPage kind="following" />} />
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<AdminPage />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

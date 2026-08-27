@@ -82,6 +82,13 @@ export function Navbar() {
                 Home
               </NavLink>
             </li>
+            {user.role === 'ADMIN' ? (
+              <li className="nav-item">
+                <NavLink className={navClassName} to="/admin">
+                  Admin
+                </NavLink>
+              </li>
+            ) : null}
             <li className="nav-item">
               <NavLink className={iconNavClassName} to="/requests" title="Follow requests" aria-label="Follow requests">
                 <i className="bi bi-person-plus fs-5" />
@@ -153,6 +160,13 @@ export function Navbar() {
                     Follow requests
                   </NavLink>
                 </li>
+                {user.role === 'ADMIN' ? (
+                  <li>
+                    <NavLink className="dropdown-item" to="/admin">
+                      Admin
+                    </NavLink>
+                  </li>
+                ) : null}
                 <li>
                   <hr className="dropdown-divider" />
                 </li>
