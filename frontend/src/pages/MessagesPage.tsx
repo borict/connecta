@@ -1,43 +1,23 @@
-import { useEffect, useState } from 'react'
-import { errorMessage } from '../api/errorMessage'
 import { fetchConversations } from '../api/conversations'
 import { useAuth } from '../auth/AuthContext'
 import { ConversationItem } from '../components/ConversationItem'
+import { InfiniteScrollSentinel } from '../components/InfiniteScrollSentinel'
+import { usePagedList } from '../lib/usePagedList'
 import type { ConversationResponse } from '../types/api'
+
+function conversationId(conversation: ConversationResponse): string {
+  return conversation.conversationId
+}
 
 export function MessagesPage() {
   const { user } = useAuth()
-  const [conversations, setConversations] = useState<ConversationResponse[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      setError(null)
-      setLoading(true)
-      try {
-        const page = await fetchConversations()
-        if (!cancelled) {
-          setConversations(page.content)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(errorMessage(err, 'Could not load messages'))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { items: conversations, loading, loadingMore, error, loadMoreError, hasMore, loadMore } =
+    usePagedList<ConversationResponse>({
+      resetKey: 'inbox',
+      loadPage: (page) => fetchConversations(page),
+      getId: conversationId,
+      fallbackError: 'Could not load messages',
+    })
 
   return (
     <>
@@ -61,6 +41,13 @@ export function MessagesPage() {
               currentUserId={user?.id ?? ''}
             />
           ))}
+          <InfiniteScrollSentinel
+            disabled={!hasMore}
+            loading={loadingMore}
+            error={loadMoreError}
+            onVisible={loadMore}
+            onRetry={loadMore}
+          />
         </div>
       )}
     </>

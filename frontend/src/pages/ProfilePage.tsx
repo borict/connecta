@@ -2,18 +2,21 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { errorMessage } from '../api/errorMessage'
-import { fetchUserPosts } from '../api/posts'
+import { fetchUserPosts, USER_POSTS_PAGE_SIZE } from '../api/posts'
 import { fetchFollowState, fetchFollowStats } from '../api/social'
 import { fetchUserByUsername } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { FollowButton } from '../components/FollowButton'
+import { InfiniteScrollSentinel } from '../components/InfiniteScrollSentinel'
 import { PostCard } from '../components/PostCard'
+import { usePagedList } from '../lib/usePagedList'
 import type {
   FeedPostDto,
   FollowStateResponse,
   FollowStatsResponse,
   Gender,
+  PageResponse,
   UserProfileResponse,
 } from '../types/api'
 import { isLimitedProfile, isPublicProfile } from '../types/api'
@@ -35,17 +38,61 @@ function countLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`
 }
 
+function postId(post: FeedPostDto): string {
+  return post.id
+}
+
+function emptyPostsPage(): PageResponse<FeedPostDto> {
+  return { content: [], page: 0, size: USER_POSTS_PAGE_SIZE, totalElements: 0, totalPages: 0 }
+}
+
 export function ProfilePage() {
   const { username } = useParams()
   const { user: me } = useAuth()
   const [profile, setProfile] = useState<UserProfileResponse | null>(null)
   const [stats, setStats] = useState<FollowStatsResponse | null>(null)
   const [followState, setFollowState] = useState<FollowStateResponse | null>(null)
-  const [posts, setPosts] = useState<FeedPostDto[]>([])
   const [postTotal, setPostTotal] = useState(0)
   const [privatePosts, setPrivatePosts] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const publicId = profile && isPublicProfile(profile) ? profile.id : null
+
+  const {
+    items: posts,
+    setItems: setPosts,
+    loading: postsLoading,
+    loadingMore,
+    error: postsError,
+    loadMoreError,
+    hasMore,
+    loadMore,
+  } = usePagedList<FeedPostDto>({
+    enabled: Boolean(publicId) && !privatePosts,
+    resetKey: publicId ?? '',
+    loadPage: async (page) => {
+      if (!publicId) {
+        return emptyPostsPage()
+      }
+      try {
+        return await fetchUserPosts(publicId, page)
+      } catch (err) {
+        if (page === 0 && err instanceof ApiError && err.status === 403) {
+          setPrivatePosts(true)
+          return emptyPostsPage()
+        }
+        throw err
+      }
+    },
+    getId: postId,
+    fallbackError: 'Could not load posts',
+    onLoaded: (page, mode) => {
+      if (mode === 'replace') {
+        setPostTotal(page.totalElements)
+      }
+    },
+  })
 
   const load = useCallback(
     async (silent = false) => {
@@ -66,16 +113,8 @@ export function ProfilePage() {
         const user = await fetchUserByUsername(handle)
         const limited = isLimitedProfile(user)
         const isOwn = Boolean(me && user.id === me.id)
-        const [nextStats, nextPosts, nextFollow] = await Promise.all([
+        const [nextStats, nextFollow] = await Promise.all([
           fetchFollowStats(user.id).catch(() => null),
-          limited
-            ? Promise.resolve<'private'>('private')
-            : fetchUserPosts(user.id).catch((err) => {
-                if (err instanceof ApiError && err.status === 403) {
-                  return 'private' as const
-                }
-                throw err
-              }),
           isOwn
             ? Promise.resolve(null)
             : fetchFollowState(user.id).catch(() => ({ following: false, pending: false })),
@@ -83,15 +122,7 @@ export function ProfilePage() {
         setProfile(user)
         setStats(nextStats)
         setFollowState(nextFollow)
-        if (nextPosts === 'private') {
-          setPrivatePosts(true)
-          setPosts([])
-          setPostTotal(0)
-        } else {
-          setPrivatePosts(false)
-          setPosts(nextPosts.content)
-          setPostTotal(nextPosts.totalElements)
-        }
+        setPrivatePosts(limited)
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           setError('User not found')
@@ -231,10 +262,27 @@ export function ProfilePage() {
             </p>
           </div>
         </div>
+      ) : postsLoading && posts.length === 0 ? (
+        <div className="d-flex justify-content-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading posts…</span>
+          </div>
+        </div>
+      ) : postsError ? (
+        <div className="alert alert-danger">{postsError}</div>
       ) : posts.length === 0 ? (
         <p className="text-secondary mb-0">No posts yet.</p>
       ) : (
-        posts.map((post) => <PostCard key={post.id} post={post} onDeleted={handleDeleted} />)
+        <>
+          {posts.map((post) => <PostCard key={post.id} post={post} onDeleted={handleDeleted} />)}
+          <InfiniteScrollSentinel
+            disabled={!hasMore}
+            loading={loadingMore}
+            error={loadMoreError}
+            onVisible={loadMore}
+            onRetry={loadMore}
+          />
+        </>
       )}
     </>
   )

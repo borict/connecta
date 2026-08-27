@@ -1,62 +1,56 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { errorMessage } from '../api/errorMessage'
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '../api/notifications'
 import { fetchUsersByIds } from '../api/users'
+import { InfiniteScrollSentinel } from '../components/InfiniteScrollSentinel'
 import { NotificationItem } from '../components/NotificationItem'
 import { notificationPath } from '../lib/notificationPath'
+import { usePagedList } from '../lib/usePagedList'
 import { useUnreadCount } from '../notifications/UnreadCountContext'
 import type { NotificationResponse, UserSummaryResponse } from '../types/api'
+
+function notificationId(notification: NotificationResponse): string {
+  return notification.id
+}
 
 export function NotificationsPage() {
   const navigate = useNavigate()
   const { setUnreadCount, refreshUnreadCount } = useUnreadCount()
-  const [notifications, setNotifications] = useState<NotificationResponse[]>([])
   const [actors, setActors] = useState<Record<string, UserSummaryResponse>>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [markingAll, setMarkingAll] = useState(false)
 
+  const {
+    items: notifications,
+    setItems: setNotifications,
+    loading,
+    loadingMore,
+    error,
+    loadMoreError,
+    hasMore,
+    loadMore,
+  } = usePagedList<NotificationResponse>({
+    resetKey: 'notifications',
+    loadPage: (page) => fetchNotifications(page),
+    getId: notificationId,
+    fallbackError: 'Could not load notifications',
+    onLoaded: (page) => {
+      void fetchUsersByIds(page.content.map((item) => item.actorId))
+        .then((users) => {
+          setActors((current) => ({
+            ...current,
+            ...Object.fromEntries(users.map((user) => [user.id, user])),
+          }))
+        })
+        .catch(() => {
+          // Names stay as fallbacks on the item.
+        })
+    },
+  })
+
   const unreadOnPage = notifications.some((notification) => !notification.read)
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      setError(null)
-      setLoading(true)
-      try {
-        const page = await fetchNotifications()
-        const actorIds = page.content.map((item) => item.actorId)
-        let actorMap: Record<string, UserSummaryResponse> = {}
-        try {
-          const users = await fetchUsersByIds(actorIds)
-          actorMap = Object.fromEntries(users.map((user) => [user.id, user]))
-        } catch {
-          actorMap = {}
-        }
-        if (!cancelled) {
-          setNotifications(page.content)
-          setActors(actorMap)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(errorMessage(err, 'Could not load notifications'))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   async function handleOpen(notification: NotificationResponse) {
     if (busyId || markingAll) {
@@ -68,9 +62,7 @@ export function NotificationsPage() {
       setBusyId(notification.id)
       try {
         const updated = await markNotificationRead(notification.id)
-        setNotifications((current) =>
-          current.map((item) => (item.id === updated.id ? updated : item)),
-        )
+        setNotifications((current) => current.map((item) => (item.id === updated.id ? updated : item)))
         setUnreadCount((count) => Math.max(0, count - 1))
       } catch (err) {
         setActionError(errorMessage(err, 'Could not mark notification as read'))
@@ -141,6 +133,13 @@ export function NotificationsPage() {
                   onOpen={(item) => void handleOpen(item)}
                 />
               ))}
+              <InfiniteScrollSentinel
+                disabled={!hasMore}
+                loading={loadingMore}
+                error={loadMoreError}
+                onVisible={loadMore}
+                onRetry={loadMore}
+              />
             </div>
           )}
         </>

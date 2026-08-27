@@ -1,43 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { errorMessage } from '../api/errorMessage'
 import { acceptFollowRequest, fetchIncomingRequests, rejectFollowRequest } from '../api/social'
+import { InfiniteScrollSentinel } from '../components/InfiniteScrollSentinel'
 import { UserListItem } from '../components/UserListItem'
+import { usePagedList } from '../lib/usePagedList'
 import type { FollowUserResponse } from '../types/api'
 
+function requestId(request: FollowUserResponse): string {
+  return request.userId
+}
+
 export function FollowRequestsPage() {
-  const [requests, setRequests] = useState<FollowUserResponse[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      setError(null)
-      setLoading(true)
-      try {
-        const page = await fetchIncomingRequests()
-        if (!cancelled) {
-          setRequests(page.content)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(errorMessage(err, 'Could not load follow requests'))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const {
+    items: requests,
+    setItems: setRequests,
+    loading,
+    loadingMore,
+    error,
+    loadMoreError,
+    hasMore,
+    loadMore,
+  } = usePagedList<FollowUserResponse>({
+    resetKey: 'requests',
+    loadPage: (page) => fetchIncomingRequests(page),
+    getId: requestId,
+    fallbackError: 'Could not load follow requests',
+  })
 
   async function handleAccept(followerId: string) {
     if (busyId) {
@@ -88,38 +79,47 @@ export function FollowRequestsPage() {
           {requests.length === 0 ? (
             <p className="text-secondary mb-0">No follow requests.</p>
           ) : (
-            <ul className="list-unstyled mb-0">
-              {requests.map((request) => {
-                const busy = busyId === request.userId
-                return (
-                  <li key={request.userId} className="border-bottom">
-                    <UserListItem
-                      user={request}
-                      actions={
-                        <>
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => void handleAccept(request.userId)}
-                            disabled={Boolean(busyId)}
-                          >
-                            {busy ? 'Saving…' : 'Accept'}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary btn-sm"
-                            onClick={() => void handleReject(request.userId)}
-                            disabled={Boolean(busyId)}
-                          >
-                            Reject
-                          </button>
-                        </>
-                      }
-                    />
-                  </li>
-                )
-              })}
-            </ul>
+            <>
+              <ul className="list-unstyled mb-0">
+                {requests.map((request) => {
+                  const busy = busyId === request.userId
+                  return (
+                    <li key={request.userId} className="border-bottom">
+                      <UserListItem
+                        user={request}
+                        actions={
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => void handleAccept(request.userId)}
+                              disabled={Boolean(busyId)}
+                            >
+                              {busy ? 'Saving…' : 'Accept'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary btn-sm"
+                              onClick={() => void handleReject(request.userId)}
+                              disabled={Boolean(busyId)}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        }
+                      />
+                    </li>
+                  )
+                })}
+              </ul>
+              <InfiniteScrollSentinel
+                disabled={!hasMore}
+                loading={loadingMore}
+                error={loadMoreError}
+                onVisible={loadMore}
+                onRetry={loadMore}
+              />
+            </>
           )}
         </>
       )}

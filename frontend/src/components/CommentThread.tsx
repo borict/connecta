@@ -3,11 +3,17 @@ import { Link } from 'react-router-dom'
 import { createComment, deleteComment, fetchComments } from '../api/posts'
 import { errorMessage } from '../api/errorMessage'
 import { useAuth } from '../auth/AuthContext'
+import { InfiniteScrollSentinel } from './InfiniteScrollSentinel'
 import { formatPostTime } from '../lib/formatTime'
+import { usePagedList } from '../lib/usePagedList'
 import type { CommentResponse } from '../types/api'
 import { Avatar } from './Avatar'
 
 const MAX_CONTENT = 500
+
+function commentId(comment: CommentResponse): string {
+  return comment.id
+}
 
 type CommentThreadProps = {
   postId: string
@@ -18,49 +24,36 @@ export function CommentThread({ postId, initialCount }: CommentThreadProps) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [count, setCount] = useState(initialCount)
-  const [comments, setComments] = useState<CommentResponse[]>([])
-  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+
+  const {
+    items: comments,
+    setItems: setComments,
+    loading,
+    loadingMore,
+    error,
+    loadMoreError,
+    hasMore,
+    loadMore,
+  } = usePagedList<CommentResponse>({
+    enabled: open,
+    resetKey: postId,
+    loadPage: (page) => fetchComments(postId, page),
+    getId: commentId,
+    fallbackError: 'Could not load comments',
+    onLoaded: (page, mode) => {
+      if (mode === 'replace') {
+        setCount(page.totalElements)
+      }
+    },
+  })
 
   useEffect(() => {
     setCount(initialCount)
   }, [initialCount])
-
-  useEffect(() => {
-    if (!open) {
-      return
-    }
-
-    let cancelled = false
-
-    async function load() {
-      setError(null)
-      setLoading(true)
-      try {
-        const page = await fetchComments(postId)
-        if (!cancelled) {
-          setComments(page.content)
-          setCount(page.totalElements)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(errorMessage(err, 'Could not load comments'))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [open, postId])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -68,7 +61,7 @@ export function CommentThread({ postId, initialCount }: CommentThreadProps) {
     if (!trimmed) {
       return
     }
-    setError(null)
+    setSubmitError(null)
     setSubmitting(true)
     try {
       const created = await createComment(postId, trimmed)
@@ -76,7 +69,7 @@ export function CommentThread({ postId, initialCount }: CommentThreadProps) {
       setCount((current) => current + 1)
       setDraft('')
     } catch (err) {
-      setError(errorMessage(err, 'Could not add comment'))
+      setSubmitError(errorMessage(err, 'Could not add comment'))
     } finally {
       setSubmitting(false)
     }
@@ -86,23 +79,20 @@ export function CommentThread({ postId, initialCount }: CommentThreadProps) {
     if (deletingId) {
       return
     }
-    setError(null)
+    setSubmitError(null)
     setDeletingId(commentId)
     try {
       await deleteComment(commentId)
       setComments((current) => current.filter((comment) => comment.id !== commentId))
       setCount((current) => Math.max(0, current - 1))
     } catch (err) {
-      setError(errorMessage(err, 'Could not delete comment'))
+      setSubmitError(errorMessage(err, 'Could not delete comment'))
     } finally {
       setDeletingId(null)
     }
   }
 
   function toggleOpen() {
-    if (!open) {
-      setLoading(true)
-    }
     setOpen((current) => !current)
   }
 
@@ -123,7 +113,9 @@ export function CommentThread({ postId, initialCount }: CommentThreadProps) {
       </button>
       {open ? (
         <div className="w-100 mt-1 pt-3 border-top">
-          {error ? <div className="alert alert-danger py-2 small">{error}</div> : null}
+          {error || submitError ? (
+            <div className="alert alert-danger py-2 small">{error ?? submitError}</div>
+          ) : null}
           {loading ? (
             <div className="d-flex justify-content-center py-3">
               <div className="spinner-border spinner-border-sm text-primary" role="status">
@@ -133,6 +125,7 @@ export function CommentThread({ postId, initialCount }: CommentThreadProps) {
           ) : comments.length === 0 ? (
             <p className="text-secondary small mb-3">No comments yet.</p>
           ) : (
+            <>
             <ul className="list-unstyled mb-3">
               {comments.map((comment) => {
                 const displayName = comment.authorDisplayName || comment.authorUsername || 'Unknown'
@@ -186,6 +179,14 @@ export function CommentThread({ postId, initialCount }: CommentThreadProps) {
                 )
               })}
             </ul>
+            <InfiniteScrollSentinel
+              disabled={!hasMore}
+              loading={loadingMore}
+              error={loadMoreError}
+              onVisible={loadMore}
+              onRetry={loadMore}
+            />
+          </>
           )}
           <form onSubmit={handleSubmit}>
             <label className="form-label visually-hidden" htmlFor={inputId}>
