@@ -23,9 +23,13 @@ export function getStoredUser(): UserMeResponse | null {
   }
 }
 
+export function setStoredUser(user: UserMeResponse): void {
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
 export function setSession(token: string, user: UserMeResponse): void {
   setAccessToken(token)
-  localStorage.setItem(USER_KEY, JSON.stringify(user))
+  setStoredUser(user)
 }
 
 export function clearAccessToken(): void {

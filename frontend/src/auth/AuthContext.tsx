@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { fetchCurrentUser } from '../api/auth'
-import { clearAccessToken, getAccessToken, getStoredUser, setSession } from '../api/token'
+import { clearAccessToken, getAccessToken, getStoredUser, setSession, setStoredUser } from '../api/token'
 import type { UserMeResponse } from '../types/api'
 
 type AuthContextValue = {
@@ -66,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       establishSession(nextUser: UserMeResponse) {
+        setStoredUser(nextUser)
         setUser(nextUser)
       },
       logout() {

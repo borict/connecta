@@ -111,6 +111,11 @@ export function Navbar() {
                   </NavLink>
                 </li>
                 <li>
+                  <NavLink className="dropdown-item" to="/settings">
+                    Edit profile
+                  </NavLink>
+                </li>
+                <li>
                   <NavLink className="dropdown-item" to="/requests">
                     Follow requests
                   </NavLink>

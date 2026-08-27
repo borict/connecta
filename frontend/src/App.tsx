@@ -11,6 +11,7 @@ import { NotificationsPage } from './pages/NotificationsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SearchPage } from './pages/SearchPage'
+import { SettingsPage } from './pages/SettingsPage'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/requests" element={<FollowRequestsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/u/:username" element={<ProfilePage />} />
           <Route path="/u/:username/followers" element={<FollowListPage kind="followers" />} />
           <Route path="/u/:username/following" element={<FollowListPage kind="following" />} />

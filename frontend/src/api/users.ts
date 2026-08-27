@@ -1,5 +1,5 @@
-import { api, withQuery } from './client'
-import type { PageResponse, UserProfileResponse, UserSummaryResponse } from '../types/api'
+import { api, jsonPart, withQuery } from './client'
+import type { PageResponse, UpdateProfileRequest, UserMeResponse, UserProfileResponse, UserSummaryResponse } from '../types/api'
 
 export const USER_SEARCH_PAGE_SIZE = 20
 
@@ -13,4 +13,16 @@ export function searchUsers(
   size = USER_SEARCH_PAGE_SIZE,
 ): Promise<PageResponse<UserSummaryResponse>> {
   return api.get<PageResponse<UserSummaryResponse>>(withQuery('/api/users/search', { q: query, page, size }))
+}
+
+export function updateMe(
+  data: UpdateProfileRequest,
+  profilePicture?: File | null,
+): Promise<UserMeResponse> {
+  const formData = new FormData()
+  formData.append('data', jsonPart(data), 'data.json')
+  if (profilePicture && profilePicture.size > 0) {
+    formData.append('profilePicture', profilePicture)
+  }
+  return api.putMultipart<UserMeResponse>('/api/users/me', formData)
 }

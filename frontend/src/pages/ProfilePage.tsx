@@ -164,7 +164,13 @@ export function ProfilePage() {
             {profile.isPrivate ? <span className="badge text-bg-light border">Private</span> : null}
           </div>
           <div className="text-secondary mb-2">@{profile.username}</div>
-          {isOwn || !followState ? null : (
+          {isOwn ? (
+            <div className="mb-2">
+              <Link className="btn btn-outline-secondary btn-sm" to="/settings">
+                Edit profile
+              </Link>
+            </div>
+          ) : followState ? (
             <div className="mb-2">
               <FollowButton
                 userId={profile.id}
@@ -173,7 +179,7 @@ export function ProfilePage() {
                 onChanged={() => load(true)}
               />
             </div>
-          )}
+          ) : null}
           <div className="d-flex flex-wrap gap-3 small mb-2">
             {!publicProfile ? null : <span>{countLabel(postTotal, 'post', 'posts')}</span>}
             {stats ? (
