@@ -170,16 +170,21 @@ export function ProfilePage() {
                 Edit profile
               </Link>
             </div>
-          ) : followState ? (
-            <div className="mb-2">
-              <FollowButton
-                userId={profile.id}
-                following={followState.following}
-                pending={followState.pending}
-                onChanged={() => load(true)}
-              />
+          ) : (
+            <div className="mb-2 d-flex flex-wrap gap-2">
+              {followState ? (
+                <FollowButton
+                  userId={profile.id}
+                  following={followState.following}
+                  pending={followState.pending}
+                  onChanged={() => load(true)}
+                />
+              ) : null}
+              <Link className="btn btn-outline-primary btn-sm" to={`/messages/${encodeURIComponent(profile.id)}`}>
+                Message
+              </Link>
             </div>
-          ) : null}
+          )}
           <div className="d-flex flex-wrap gap-3 small mb-2">
             {!publicProfile ? null : <span>{countLabel(postTotal, 'post', 'posts')}</span>}
             {stats ? (

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
 import { formatPostTime } from '../lib/formatTime'
 import type { ConversationResponse } from '../types/api'
@@ -16,10 +17,12 @@ export function ConversationItem({ conversation, currentUserId }: ConversationIt
     ? `${last.senderId === currentUserId ? 'You: ' : ''}${last.content}`
     : 'No messages yet'
   const time = conversation.lastMessageAt ? formatPostTime(conversation.lastMessageAt) : ''
+  const chatPath = `/messages/${encodeURIComponent(conversation.otherUserId)}`
 
   return (
-    <div
-      className={`d-flex align-items-start gap-2 py-3 border-bottom ${unread ? 'bg-primary-subtle' : ''}`}
+    <Link
+      to={chatPath}
+      className={`d-flex align-items-start gap-2 py-3 border-bottom text-decoration-none text-reset ${unread ? 'bg-primary-subtle' : ''}`}
     >
       <Avatar name={displayName} username={username} src={conversation.otherProfilePictureUrl} size={44} />
       <div className="min-w-0 flex-grow-1">
@@ -37,6 +40,6 @@ export function ConversationItem({ conversation, currentUserId }: ConversationIt
           {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
         </span>
       ) : null}
-    </div>
+    </Link>
   )
 }

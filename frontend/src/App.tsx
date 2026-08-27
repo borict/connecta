@@ -7,6 +7,7 @@ import { FollowRequestsPage } from './pages/FollowRequestsPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { MessagesPage } from './pages/MessagesPage'
+import { ChatPage } from './pages/ChatPage'
 import { NotificationsPage } from './pages/NotificationsPage'
 import { PostPage } from './pages/PostPage'
 import { ProfilePage } from './pages/ProfilePage'
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/messages/:userId" element={<ChatPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/posts/:postId" element={<PostPage />} />
           <Route path="/requests" element={<FollowRequestsPage />} />
