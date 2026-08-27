@@ -79,6 +79,11 @@ export function Navbar() {
               </NavLink>
             </li>
             <li className="nav-item">
+              <NavLink className={iconNavClassName} to="/requests" title="Follow requests" aria-label="Follow requests">
+                <i className="bi bi-person-plus fs-5" />
+              </NavLink>
+            </li>
+            <li className="nav-item">
               <NavLink className={iconNavClassName} to="/messages" title="Messages" aria-label="Messages">
                 <i className="bi bi-chat-dots fs-5" />
               </NavLink>
@@ -103,6 +108,11 @@ export function Navbar() {
                 <li>
                   <NavLink className="dropdown-item" to={profilePath}>
                     View profile
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink className="dropdown-item" to="/requests">
+                    Follow requests
                   </NavLink>
                 </li>
                 <li>
