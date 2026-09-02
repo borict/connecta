@@ -133,6 +133,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Faza 3: Social Service (follow/unfollow, private-profile requests, lists, home feed, `USER_FOLLOWED`).
 - Faza 4: Notification Service (REST lista/read/unread-count, Azure consumer na `connecta-events` / `notification-service`, fail-soft publisheri).
 - Faza 5: Message Service (1:1 konverzacije, REST poruke, STOMP `/ws`, `MESSAGE_SENT`).
+- Faza 6: React frontend (`:5173`) kroz Gateway — auth, feed, profil, follow, notifikacije, chat, `/admin`.
 
 ### Smoke test (Faza 1)
 
@@ -193,5 +194,16 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 9. WebSocket (raw STOMP, **bez SockJS**): handshake `ws://localhost:8080/ws?token=<JWT>` ili `Authorization: Bearer` na upgrade. STOMP `CONNECT` i dalje šalje `Authorization: Bearer <JWT>`. `SUBSCRIBE /topic/conversations.{conversationId}` (samo učesnik). `SEND /app/chat.send` body `{ "conversationId": "...", "content": "hi" }` → isti `MessageResponse` kao HTTP
 10. Dve sesije: A pošalje preko WS, B vidi na topic-u. HTTP send takođe stigne na WS. Gateway `/ws` bez tokena → **401**
 11. Azure: sa `AZURE_SERVICEBUS_CONNECTION_STRING`, send (HTTP ili WS) → recipient vidi notifikaciju `MESSAGE` / `CONVERSATION` / `"Someone sent you a message"`; self-send se ne dešava na 1:1. Bez stringa send i dalje uspeva (fail-soft)
+
+### Smoke test (Faza 6)
+
+1. `docker compose up -d` (Postgres host port **5433**)
+2. Pokreni svih 6 Spring app (isti `JWT_SECRET`) i `cd frontend && npm run dev` → [http://localhost:5173](http://localhost:5173)
+3. Register ili login. FE ide samo kroz Gateway `http://localhost:8080` (nikad direktno na `:8081`–`:8085`)
+4. Home: feed (`GET /api/feed`, `page`/`size`, default size **20**), novi post, like, komentar, brisanje svog posta
+5. Profil `/u/:username`, follow / Requested / Unfollow, followers/following, follow zahtevi `/requests`, pretraga, izmena `/settings`
+6. Zvono: unread badge + lista; klik označava pročitano. Messages: crvena tačka = zbir `unreadCount` (nije zvono). Chat HTTP + STOMP uživo (`ws://localhost:8080/ws?token=<JWT>`, bez SockJS)
+7. Liste na dnu učitavaju sledeći `page` (infinite scroll)
+8. Kao `USER`: nema **Admin** u navbaru; `/admin` redirect na Home. Kao `admin` / `Admin123!`: `/admin` lista korisnike; Ban / Unban / Deactivate / Restore; sopstveni nalog se ne menja ovde
 
 

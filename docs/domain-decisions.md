@@ -33,7 +33,7 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 
 ## Admin (MVP)
 
-- FE route: `/admin` (ADMIN only) — later.
+- FE route: `/admin` (ADMIN only; navbar link is hidden for `USER`).
 - Backend (ADMIN role required):
   - `GET /api/admin/users`
   - `GET /api/admin/users/{userId}`
