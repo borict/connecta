@@ -23,6 +23,20 @@ class DirectPairIdsTest {
     }
 
     @Test
+    void of_matchesPostgresUnsignedUuidOrderWhenJavaCompareToDisagrees() {
+        UUID tamara = UUID.fromString("173dd2dd-555c-40ac-b342-ff2fac5a421c");
+        UUID nevenka = UUID.fromString("86cd846c-385c-4311-892d-a41941880278");
+
+        assertThat(nevenka.compareTo(tamara)).isNegative();
+
+        DirectPairIds pair = DirectPairIds.of(nevenka, tamara);
+
+        assertThat(pair.userAId()).isEqualTo(tamara);
+        assertThat(pair.userBId()).isEqualTo(nevenka);
+        assertThat(DirectPairIds.compareUnsigned(pair.userAId(), pair.userBId())).isNegative();
+    }
+
+    @Test
     void of_sameUsersInEitherOrder_shareTheSameIdentity() {
         UUID first = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         UUID second = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");

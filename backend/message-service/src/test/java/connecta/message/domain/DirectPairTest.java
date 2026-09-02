@@ -26,6 +26,18 @@ class DirectPairTest {
     }
 
     @Test
+    void constructor_sortsUsingPostgresUnsignedOrder() {
+        UUID tamara = UUID.fromString("173dd2dd-555c-40ac-b342-ff2fac5a421c");
+        UUID nevenka = UUID.fromString("86cd846c-385c-4311-892d-a41941880278");
+        UUID conversationId = UUID.randomUUID();
+
+        DirectPair pair = new DirectPair(nevenka, tamara, conversationId);
+
+        assertThat(pair.getUserAId()).isEqualTo(tamara);
+        assertThat(pair.getUserBId()).isEqualTo(nevenka);
+    }
+
+    @Test
     void constructor_selfPair_throws() {
         UUID userId = UUID.randomUUID();
 

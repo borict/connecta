@@ -11,7 +11,7 @@ public record DirectPairIds(UUID userAId, UUID userBId) {
         if (userAId.equals(userBId)) {
             throw new IllegalArgumentException("A direct pair requires two different users");
         }
-        if (userAId.compareTo(userBId) > 0) {
+        if (compareUnsigned(userAId, userBId) > 0) {
             throw new IllegalArgumentException("userAId must be less than userBId");
         }
     }
@@ -23,8 +23,20 @@ public record DirectPairIds(UUID userAId, UUID userBId) {
         if (first.equals(second)) {
             throw new IllegalArgumentException("A direct pair requires two different users");
         }
-        return first.compareTo(second) < 0
+        return compareUnsigned(first, second) < 0
                 ? new DirectPairIds(first, second)
                 : new DirectPairIds(second, first);
+    }
+
+    /**
+     * Same order as PostgreSQL {@code uuid < uuid} (unsigned 128-bit).
+     * {@link UUID#compareTo} is signed and can disagree with the DB check constraint.
+     */
+    static int compareUnsigned(UUID left, UUID right) {
+        int high = Long.compareUnsigned(left.getMostSignificantBits(), right.getMostSignificantBits());
+        if (high != 0) {
+            return high;
+        }
+        return Long.compareUnsigned(left.getLeastSignificantBits(), right.getLeastSignificantBits());
     }
 }
