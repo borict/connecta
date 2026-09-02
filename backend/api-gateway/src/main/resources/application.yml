@@ -57,6 +57,10 @@ spring:
           uri: lb://social-service
           predicates:
             - Path=/api/feed,/api/feed/**
+        - id: social-explore
+          uri: lb://social-service
+          predicates:
+            - Path=/api/explore,/api/explore/**
         - id: notification-api
           uri: lb://notification-service
           predicates:

@@ -13,4 +13,7 @@ public interface UserClient {
 
     @GetMapping("/api/users/batch")
     List<UserSummaryDto> batchUsers(@RequestParam("ids") String ids);
+
+    @GetMapping("/api/users/public-ids")
+    PublicIdsDto publicIds();
 }

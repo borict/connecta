@@ -30,10 +30,11 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("Connecta Social Service")
                         .description("""
-                                Follows, follow requests and the home feed.
+                                Follows, follow requests, the home feed and Explore.
                                 Login via User Service POST /api/auth/login, copy the token,
                                 then Authorize → Bearer token here.
                                 Public follow → ACCEPTED. Private follow → PENDING until accepted.
+                                Explore is public authors the viewer does not follow.
                                 """)
                         .version("v1"))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH))
