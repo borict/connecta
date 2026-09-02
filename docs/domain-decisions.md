@@ -114,6 +114,18 @@ User Service and Post Service ask Social (`GET /api/social/{userId}/is-following
 
 Home feed is `GET /api/feed` on Social: ACCEPTED followee IDs plus the viewer, then Post `GET /api/posts/by-authors`. If Post is down, Social returns an empty page (not 500).
 
+## Explore (discovery)
+
+Home is following + self. Explore is a separate discovery feed: posts from people the viewer does **not** follow, so they can follow from content.
+
+- Social owns `GET /api/explore` (JWT). Gateway route: `/api/explore` (same style as `/api/feed`). Client still enters only through `http://localhost:8080`.
+- User Service lists candidate authors: `GET /api/users/public-ids` — `isPrivate=false`, `isActive=true`, not banned, exclude the current user, max **100** (same cap as Home).
+- Social subtracts ACCEPTED followee IDs, then Post `GET /api/posts/by-authors`. Newest first; `page`/`size` like other lists (default size **20**).
+- Private profiles never appear. Follow on Explore is always on a public account → `ACCEPTED` immediately (same as profile Follow).
+- If User or Post is down, Social returns an empty page **200**, not 500.
+- FE: `/explore`, navbar **Explore**. Cards match Home; **Follow** next to the author name. After Follow, remove **all** of that author’s posts from the current Explore list (they belong on Home after refresh).
+- No ML, Redis, ranking, or extra notification types for Explore.
+
 `USER_FOLLOWED` is published to Azure Service Bus only when a follow becomes `ACCEPTED` (public follow or accept). Fail-soft: missing connection string is a no-op; publish errors do not fail the HTTP request.
 
 ## Notifications
