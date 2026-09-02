@@ -82,6 +82,11 @@ export function Navbar() {
                 Home
               </NavLink>
             </li>
+            <li className="nav-item">
+              <NavLink className={navClassName} to="/explore">
+                Explore
+              </NavLink>
+            </li>
             {user.role === 'ADMIN' ? (
               <li className="nav-item">
                 <NavLink className={navClassName} to="/admin">

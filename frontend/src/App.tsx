@@ -4,6 +4,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AdminRoute } from './auth/AdminRoute'
 import { AppLayout } from './layouts/AppLayout'
 import { AdminPage } from './pages/AdminPage'
+import { ExplorePage } from './pages/ExplorePage'
 import { FollowListPage } from './pages/FollowListPage'
 import { FollowRequestsPage } from './pages/FollowRequestsPage'
 import { HomePage } from './pages/HomePage'
@@ -27,6 +28,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/explore" element={<ExplorePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/messages/:userId" element={<ChatPage />} />
