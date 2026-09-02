@@ -1,3 +1,29 @@
+# Infra only:  docker compose up -d
+# Full backend: stop IntelliJ Spring first (ports 8761, 8080–8085), then:
+#   docker compose --profile apps up -d
+# Do not run IntelliJ and profile `apps` on the same ports.
+# Frontend stays on the host: npm run dev → http://localhost:5173 → Gateway :8080
+
+x-spring-env: &spring-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+  ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+  CONNECTA_STORAGE_PUBLIC_BASE_URL: http://localhost:8080/media
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+
+x-app-common: &app-common
+  env_file:
+    - path: .env
+      required: false
+  profiles: ["apps"]
+
+x-jvm-health: &jvm-health
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 90s
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -33,6 +59,160 @@ services:
     container_name: connecta-zipkin
     ports:
       - "9411:9411"
+
+  eureka:
+    <<: *app-common
+    image: connecta/eureka-server:0.0.1-SNAPSHOT
+    build:
+      context: ./backend/eureka-server
+    container_name: connecta-eureka
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_INSTANCE_HOSTNAME: eureka
+    healthcheck:
+      <<: *jvm-health
+      start_period: 40s
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8761"]
+
+  user-service:
+    <<: *app-common
+    image: connecta/user-service:0.0.1-SNAPSHOT
+    build:
+      context: ./backend/user-service
+    container_name: connecta-user-service
+    ports:
+      - "8081:8081"
+    environment:
+      <<: *spring-env
+      CONNECTA_STORAGE_DIR: /app/uploads
+    volumes:
+      - ./backend/user-service/uploads:/app/uploads
+    healthcheck:
+      <<: *jvm-health
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+      zipkin:
+        condition: service_started
+
+  post-service:
+    <<: *app-common
+    image: connecta/post-service:0.0.1-SNAPSHOT
+    build:
+      context: ./backend/post-service
+    container_name: connecta-post-service
+    ports:
+      - "8082:8082"
+    environment:
+      <<: *spring-env
+      CONNECTA_STORAGE_DIR: /app/uploads
+    volumes:
+      - ./backend/post-service/uploads:/app/uploads
+    healthcheck:
+      <<: *jvm-health
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8082"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+      zipkin:
+        condition: service_started
+
+  social-service:
+    <<: *app-common
+    image: connecta/social-service:0.0.1-SNAPSHOT
+    build:
+      context: ./backend/social-service
+    container_name: connecta-social-service
+    ports:
+      - "8083:8083"
+    environment:
+      <<: *spring-env
+    healthcheck:
+      <<: *jvm-health
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8083"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+      zipkin:
+        condition: service_started
+
+  message-service:
+    <<: *app-common
+    image: connecta/message-service:0.0.1-SNAPSHOT
+    build:
+      context: ./backend/message-service
+    container_name: connecta-message-service
+    ports:
+      - "8084:8084"
+    environment:
+      <<: *spring-env
+    healthcheck:
+      <<: *jvm-health
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8084"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+      zipkin:
+        condition: service_started
+
+  notification-service:
+    <<: *app-common
+    image: connecta/notification-service:0.0.1-SNAPSHOT
+    build:
+      context: ./backend/notification-service
+    container_name: connecta-notification-service
+    ports:
+      - "8085:8085"
+    environment:
+      <<: *spring-env
+    healthcheck:
+      <<: *jvm-health
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8085"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+      zipkin:
+        condition: service_started
+
+  api-gateway:
+    <<: *app-common
+    image: connecta/api-gateway:0.0.1-SNAPSHOT
+    build:
+      context: ./backend/api-gateway
+    container_name: connecta-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *spring-env
+    healthcheck:
+      <<: *jvm-health
+      start_period: 40s
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+    depends_on:
+      eureka:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      post-service:
+        condition: service_healthy
+      social-service:
+        condition: service_healthy
+      message-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
 
 volumes:
   postgres_data:

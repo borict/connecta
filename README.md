@@ -75,13 +75,23 @@ Potrebne Azure entitete:
 
 
 
-### 3. Infrastruktura
+### 3. Dva načina pokretanja backenda
+
+**Ne pokreći IntelliJ Spring i Compose profil `apps` u isto vreme.** Oba binduju **8761** i **8080–8085**. Frontend uvek ostaje na hostu (`npm run dev`, `:5173`) i ide samo kroz Gateway `:8080`.
+
+`.env` vrednosti `POSTGRES_HOST=localhost`, `POSTGRES_PORT=5433`, `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:8761/eureka/` i `ZIPKIN_ENDPOINT=http://localhost:9411/api/v2/spans` su za način **A**. Profil `apps` ih u kontejnerima prepisuje na `postgres:5432`, `http://eureka:8761/eureka/` i `http://zipkin:9411/api/v2/spans`.
+
+Lokalne slike (kad nema Azure Blob) su na disku: `backend/user-service/uploads` i `backend/post-service/uploads`. IntelliJ i Compose dele te foldere.
+
+#### A — Docker samo infra, Spring u IntelliJ
+
+Svakodnevni rad i smoke testovi ispod.
 
 ```bash
 docker compose up -d
 ```
 
-Provera baza:
+To pali **samo** Postgres (`:5433`), Redis i Zipkin. Baze:
 
 ```bash
 docker exec -it connecta-postgres psql -U connecta -d postgres -c "\l"
@@ -89,22 +99,47 @@ docker exec -it connecta-postgres psql -U connecta -d postgres -c "\l"
 
 Zipkin UI: [http://localhost:9411](http://localhost:9411)
 
-### 4. Backend
-
 ```bash
 cd backend
 mvn clean install
 ```
 
-Pokretanje pojedinačnog servisa (primer):
+U IntelliJ IDEA (Community je dovoljan), EnvFile plugin na root `.env` (Spring sam ne učitava `.env`):
+
+1. Prvo `EurekaServerApplication` — working directory `backend/eureka-server` — [http://localhost:8761](http://localhost:8761)
+2. Zatim Gateway i 5 servisa
+
+Pojedinačni modul iz terminala (primer), samo ako IntelliJ već ne drži taj port:
 
 ```bash
 mvn -pl user-service spring-boot:run
 ```
 
-Ili pokreni module iz IntelliJ IDEA (Community Edition je dovoljan). Prvo `EurekaServerApplication` (working directory `backend/eureka-server`, [http://localhost:8761](http://localhost:8761)), pa Gateway i 5 servisa.
+#### B — Ceo backend u Compose
 
-### 5. Frontend
+Zaustavi sve Spring run konfiguracije u IntelliJ (portovi 8761, 8080–8085 slobodni). Prvi put (ili posle izmene koda) spakuj jar-ove, pa image-e:
+
+```bash
+cd backend
+mvn -pl eureka-server,api-gateway,user-service,post-service,social-service,message-service,notification-service -am package -DskipTests
+cd ..
+docker compose --profile apps build
+docker compose --profile apps up -d
+```
+
+Ako su image-i već spremni, dovoljno je `docker compose --profile apps up -d`.
+
+Eureka: [http://localhost:8761](http://localhost:8761). Gateway i dalje [http://localhost:8080](http://localhost:8080).
+
+Povratak na način A — ugasi samo Spring kontejnere, ostavi Postgres/Redis/Zipkin:
+
+```bash
+docker compose stop eureka api-gateway user-service post-service social-service message-service notification-service
+```
+
+Ne radi `docker compose down` ako želiš da baza ostane podignuta.
+
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -118,6 +153,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 
 - `.env` se ne commituje. Koristi `.env.example` kao šablon.
 - Azure Service Bus i Azure Blob Storage nisu u Docker Compose-u (cloud servisi). Prazan `AZURE_STORAGE_CONNECTION_STRING` → lokalne slike na `/media/**`; popunjen → novi upload u Blob (`avatars`, `posts`).
+- Backend: način **A** (`docker compose up -d` + IntelliJ) ili **B** (`docker compose --profile apps up -d`). Isti portovi — ne oba.
 - Domen odluke (User model, admin, privatni profili, JWT headeri, post slike, notifikacije, poruke): [docs/domain-decisions.md](docs/domain-decisions.md).
 - Follow model (PENDING/ACCEPTED, feed, `USER_FOLLOWED`): [docs/social-follow-model.md](docs/social-follow-model.md).
 - Seed admin (User Service Flyway): username `admin`, password `Admin123!`.
@@ -138,6 +174,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Faza 7: Zipkin — Micrometer Tracing na Gateway + 5 servisa, UI [http://localhost:9411](http://localhost:9411).
 - Faza 8: Eureka (`:8761`); Gateway `lb://`; Feign po imenu servisa.
 - Faza 9: Azure Blob za profilne i post slike (lokalni disk ako nema connection string).
+- Faza 10: Dockerfile-i (JRE 21) + Compose profil `apps`. Način **A** (infra u Dockeru, Spring u IntelliJ) ili **B** (ceo backend u Compose) — ne oba.
 
 ### Smoke test (Faza 1)
 
@@ -225,5 +262,14 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 3. U `.env`: `AZURE_STORAGE_CONNECTION_STRING` (Access keys), `AZURE_STORAGE_CONTAINER_AVATARS=avatars`, `AZURE_STORAGE_CONTAINER_POSTS=posts`
 4. Restartuj **user-service** i **post-service**. Log: `Azure Blob storage enabled for profile pictures` / `post images`. Loš string → warning i lokalni disk
 5. Novi upload: `profilePictureUrl` / `imageUrl` je Blob HTTPS URL (kontejner `avatars` ili `posts`). Stari `/media/**` linkovi i dalje rade
+
+### Smoke test (Faza 10)
+
+1. Ugasi IntelliJ Spring (8761, 8080–8085 slobodni). Jar-ovi u `backend/*/target` (vidi način **B** gore)
+2. `docker compose --profile apps up -d` — Eureka + Gateway + 5 servisa pored Postgres/Redis/Zipkin
+3. [http://localhost:8761](http://localhost:8761) — registrovani `API-GATEWAY`, `USER-SERVICE`, …
+4. `cd frontend && npm run dev` → [http://localhost:5173](http://localhost:5173). Login (`admin` / `Admin123!` ili registrovani nalog). FE samo kroz Gateway `:8080`
+5. Feed se učitava; lokalna slika posta/profila se vidi (`http://localhost:8080/media/…`). Zipkin: [http://localhost:9411](http://localhost:9411)
+6. Povratak na IntelliJ: `docker compose stop eureka api-gateway user-service post-service social-service message-service notification-service`, pa način **A**
 
 
