@@ -134,6 +134,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Faza 4: Notification Service (REST lista/read/unread-count, Azure consumer na `connecta-events` / `notification-service`, fail-soft publisheri).
 - Faza 5: Message Service (1:1 konverzacije, REST poruke, STOMP `/ws`, `MESSAGE_SENT`).
 - Faza 6: React frontend (`:5173`) kroz Gateway — auth, feed, profil, follow, notifikacije, chat, `/admin`.
+- Faza 7: Zipkin — Micrometer Tracing na Gateway + 5 servisa, UI [http://localhost:9411](http://localhost:9411).
 
 ### Smoke test (Faza 1)
 
@@ -205,5 +206,13 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 6. Zvono: unread badge + lista; klik označava pročitano. Messages: crvena tačka = zbir `unreadCount` (nije zvono). Chat HTTP + STOMP uživo (`ws://localhost:8080/ws?token=<JWT>`, bez SockJS)
 7. Liste na dnu učitavaju sledeći `page` (infinite scroll)
 8. Kao `USER`: nema **Admin** u navbaru; `/admin` redirect na Home. Kao `admin` / `Admin123!`: `/admin` lista korisnike; Ban / Unban / Deactivate / Restore; sopstveni nalog se ne menja ovde
+
+### Smoke test (Faza 7)
+
+1. `docker compose up -d` — Zipkin kontejner na [http://localhost:9411](http://localhost:9411) (`connecta-zipkin`)
+2. Pokreni svih 6 Spring app (isti `JWT_SECRET`). Posle dodavanja tracing zavisnosti, **restart** u IntelliJ
+3. Jedan zahtev kroz Gateway, npr. `POST http://localhost:8080/api/auth/login` ili (sa tokenom) `GET http://localhost:8080/api/feed`
+4. Zipkin UI → **Run Query**. Treba da vidiš servise (`api-gateway`, `user-service`, `social-service`, …). Otvori trace: lanac spanova (Gateway + downstream), ne samo jedan servis
+5. Sampling je `1.0` lokalno (`ZIPKIN_ENDPOINT` default `http://localhost:9411/api/v2/spans`). Ako je lista prazna, app nisu restartovane ili Zipkin nije na `:9411`
 
 
