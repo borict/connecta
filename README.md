@@ -175,6 +175,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Faza 8: Eureka (`:8761`); Gateway `lb://`; Feign po imenu servisa.
 - Faza 9: Azure Blob za profilne i post slike (lokalni disk ako nema connection string).
 - Faza 10: Dockerfile-i (JRE 21) + Compose profil `apps`. Način **A** (infra u Dockeru, Spring u IntelliJ) ili **B** (ceo backend u Compose) — ne oba.
+- Faza 11: Explore (`GET /api/explore`, FE `/explore`) — javne objave ljudi koje ne pratiš, Follow na kartici.
 
 ### Smoke test (Faza 1)
 
@@ -271,5 +272,14 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 4. `cd frontend && npm run dev` → [http://localhost:5173](http://localhost:5173). Login (`admin` / `Admin123!` ili registrovani nalog). FE samo kroz Gateway `:8080`
 5. Feed se učitava; lokalna slika posta/profila se vidi (`http://localhost:8080/media/…`). Zipkin: [http://localhost:9411](http://localhost:9411)
 6. Povratak na IntelliJ: `docker compose stop eureka api-gateway user-service post-service social-service message-service notification-service`, pa način **A**
+
+### Smoke test (Faza 11)
+
+1. Dva naloga: **A** i **B**. B je **javni** i ima bar jedan post. A **ne** prati B
+2. Pokreni User, Post, Social i Gateway (isti `JWT_SECRET`). Compose način **B**: rebuild image-a posle ovih izmena (`docker compose --profile apps build user-service social-service api-gateway && docker compose --profile apps up -d`)
+3. FE [http://localhost:5173](http://localhost:5173) kao A. Navbar **Explore** → `/explore`. Vidiš B-ov post i **Follow** pored imena (ne svoje postove, ne ljude koje već pratiš, ne privatne profile)
+4. Follow → B-ove objave odmah nestaju sa Explore. Home (osveži) pokazuje B-ov post
+5. Gateway: `GET http://localhost:8080/api/explore` sa Bearer tokenom A → ista lista. Bez JWT-a → **401**. Social Swagger tag **Explore**: [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html)
+
 
 
