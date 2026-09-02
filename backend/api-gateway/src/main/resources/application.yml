@@ -21,49 +21,52 @@ spring:
             allowedHeaders:
               - "*"
             allowCredentials: true
+      discovery:
+        locator:
+          enabled: false
       routes:
         - id: user-auth
-          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          uri: lb://user-service
           predicates:
             - Path=/api/auth/**
         - id: user-api
-          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          uri: lb://user-service
           predicates:
             - Path=/api/users/**
         - id: user-admin
-          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          uri: lb://user-service
           predicates:
             - Path=/api/admin/**
         - id: post-media
-          uri: ${POST_SERVICE_URL:http://localhost:8082}
+          uri: lb://post-service
           predicates:
             - Path=/media/posts/**
         - id: user-media
-          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          uri: lb://user-service
           predicates:
             - Path=/media/**
         - id: post-api
-          uri: ${POST_SERVICE_URL:http://localhost:8082}
+          uri: lb://post-service
           predicates:
             - Path=/api/posts/**
         - id: social-api
-          uri: ${SOCIAL_SERVICE_URL:http://localhost:8083}
+          uri: lb://social-service
           predicates:
             - Path=/api/social/**
         - id: social-feed
-          uri: ${SOCIAL_SERVICE_URL:http://localhost:8083}
+          uri: lb://social-service
           predicates:
             - Path=/api/feed,/api/feed/**
         - id: notification-api
-          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          uri: lb://notification-service
           predicates:
             - Path=/api/notifications/**
         - id: message-api
-          uri: ${MESSAGE_SERVICE_URL:http://localhost:8084}
+          uri: lb://message-service
           predicates:
             - Path=/api/conversations,/api/conversations/**
         - id: message-ws
-          uri: ${MESSAGE_SERVICE_URL:http://localhost:8084}
+          uri: lb:ws://message-service
           predicates:
             - Path=/ws,/ws/**
 
