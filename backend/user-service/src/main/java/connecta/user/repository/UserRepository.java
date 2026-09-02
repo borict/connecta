@@ -38,6 +38,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             """)
     Page<User> searchByUsernameOrDisplayName(@Param("q") String q, Pageable pageable);
 
+    @Query("""
+            SELECT u.id FROM User u
+            WHERE u.isActive = true
+              AND u.isBanned = false
+              AND u.isPrivate = false
+              AND u.id <> :excludeId
+            ORDER BY u.createdAt DESC
+            """)
+    List<UUID> findPublicIdsExcluding(@Param("excludeId") UUID excludeId, Pageable pageable);
+
     List<User> findByIdInAndIsActiveTrue(Collection<UUID> ids);
 
     Optional<User> findByIdAndIsActiveTrue(UUID id);

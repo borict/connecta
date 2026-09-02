@@ -2,6 +2,7 @@ package connecta.user.service;
 
 import connecta.user.domain.User;
 import connecta.user.dto.PageResponse;
+import connecta.user.dto.PublicIdsResponse;
 import connecta.user.dto.UpdateProfileRequest;
 import connecta.user.dto.UserLimitedResponse;
 import connecta.user.dto.UserMeResponse;
@@ -23,6 +24,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class UserService {
+
+    static final int MAX_PUBLIC_IDS = 100;
 
     private final UserRepository userRepository;
     private final ProfilePictureStorage profilePictureStorage;
@@ -102,6 +105,17 @@ public class UserService {
                 userRepository.searchByUsernameOrDisplayName(query.trim(), PageRequest.of(safePage, safeSize))
                         .map(UserSummaryResponse::from)
         );
+    }
+
+    @Transactional(readOnly = true)
+    public PublicIdsResponse publicIds() {
+        AuthenticatedUser currentUser = SecurityUtils.requireCurrentUser();
+        requireActiveUser(currentUser.id());
+        List<UUID> ids = userRepository.findPublicIdsExcluding(
+                currentUser.id(),
+                PageRequest.of(0, MAX_PUBLIC_IDS)
+        );
+        return new PublicIdsResponse(ids);
     }
 
     @Transactional(readOnly = true)

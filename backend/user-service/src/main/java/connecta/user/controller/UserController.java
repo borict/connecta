@@ -1,6 +1,7 @@
 package connecta.user.controller;
 
 import connecta.user.dto.PageResponse;
+import connecta.user.dto.PublicIdsResponse;
 import connecta.user.dto.UpdateProfileRequest;
 import connecta.user.dto.UserLimitedResponse;
 import connecta.user.dto.UserMeResponse;
@@ -70,6 +71,16 @@ public class UserController {
             );
         }
         return userService.updateMe(data, profilePicture);
+    }
+
+    @Operation(
+            summary = "Public user ids for Explore",
+            description = "Active, not banned, public profiles, excluding the current user. Max 100, newest first. Intended for Social Service Explore.",
+            tags = {"Internal"}
+    )
+    @GetMapping("/public-ids")
+    public PublicIdsResponse publicIds() {
+        return userService.publicIds();
     }
 
     @Operation(

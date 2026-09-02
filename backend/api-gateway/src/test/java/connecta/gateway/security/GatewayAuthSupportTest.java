@@ -25,6 +25,7 @@ class GatewayAuthSupportTest {
     @Test
     void protectedPaths_requireJwt() {
         assertThat(support.isPublic(request(HttpMethod.GET, "/api/users/me"))).isFalse();
+        assertThat(support.isPublic(request(HttpMethod.GET, "/api/users/public-ids"))).isFalse();
         assertThat(support.isPublic(request(HttpMethod.GET, "/api/admin/users"))).isFalse();
         assertThat(support.isAdminPath(request(HttpMethod.GET, "/api/admin/users"))).isTrue();
         assertThat(support.isPublic(request(HttpMethod.POST, "/api/posts"))).isFalse();
