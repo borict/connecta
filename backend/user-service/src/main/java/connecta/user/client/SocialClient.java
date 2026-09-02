@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 @FeignClient(
         name = "social-service",
-        url = "${connecta.social-service.url:http://localhost:8083}",
         fallbackFactory = SocialClientFallbackFactory.class
 )
 public interface SocialClient {

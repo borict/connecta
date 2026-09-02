@@ -43,10 +43,6 @@ connecta:
     local:
       base-dir: ${CONNECTA_STORAGE_DIR:./uploads}
       public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8080/media}
-  user-service:
-    url: ${USER_SERVICE_URL:http://localhost:8081}
-  social-service:
-    url: ${SOCIAL_SERVICE_URL:http://localhost:8083}
   azure:
     servicebus:
       connection-string: ${AZURE_SERVICEBUS_CONNECTION_STRING:}

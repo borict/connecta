@@ -35,10 +35,6 @@ spring:
 connecta:
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
-  user-service:
-    url: ${USER_SERVICE_URL:http://localhost:8081}
-  post-service:
-    url: ${POST_SERVICE_URL:http://localhost:8082}
   azure:
     servicebus:
       connection-string: ${AZURE_SERVICEBUS_CONNECTION_STRING:}

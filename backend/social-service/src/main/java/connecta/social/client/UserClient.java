@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @FeignClient(
         name = "user-service",
-        url = "${connecta.user-service.url:http://localhost:8081}",
         fallbackFactory = UserClientFallbackFactory.class
 )
 public interface UserClient {
