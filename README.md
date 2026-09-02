@@ -103,7 +103,7 @@ Pokretanje pojedinačnog servisa (primer):
 mvn -pl user-service spring-boot:run
 ```
 
-Ili pokreni module iz IntelliJ IDEA (Community Edition je dovoljan).
+Ili pokreni module iz IntelliJ IDEA (Community Edition je dovoljan). Prvo `EurekaServerApplication` (working directory `backend/eureka-server`, [http://localhost:8761](http://localhost:8761)), pa Gateway i 5 servisa.
 
 ### 5. Frontend
 
@@ -123,6 +123,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Follow model (PENDING/ACCEPTED, feed, `USER_FOLLOWED`): [docs/social-follow-model.md](docs/social-follow-model.md).
 - Seed admin (User Service Flyway): username `admin`, password `Admin123!`.
 - API entrypoint: Gateway `http://localhost:8080` (User `8081`, Post `8082`, Social `8083`, Message `8084`, Notification `8085`).
+- Eureka dashboard: [http://localhost:8761](http://localhost:8761). Gateway i 5 servisa se registruju; rute i Feign još idu na `localhost` portove.
 - Swagger (User Service): [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
 - Swagger (Post Service): [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html)
 - Swagger (Social Service): [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html)
