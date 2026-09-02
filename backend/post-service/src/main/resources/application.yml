@@ -43,6 +43,9 @@ connecta:
     local:
       base-dir: ${CONNECTA_STORAGE_DIR:./uploads}
       public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8080/media}
+    azure:
+      connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
+      container-posts: ${AZURE_STORAGE_CONTAINER_POSTS:posts}
   azure:
     servicebus:
       connection-string: ${AZURE_SERVICEBUS_CONNECTION_STRING:}
