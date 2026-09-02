@@ -4,7 +4,7 @@ Web društvena mreža zasnovana na mikroservisnoj arhitekturi.
 
 ## Stek
 
-- Java 21, Spring Boot 3, Spring Cloud Gateway
+- Java 21, Spring Boot 3, Spring Cloud Gateway, Eureka
 - React + TypeScript (Vite)
 - PostgreSQL, Redis, Zipkin
 - Azure Service Bus (asinhroni eventi)
@@ -13,7 +13,7 @@ Web društvena mreža zasnovana na mikroservisnoj arhitekturi.
 ## Struktura
 
 ```
-backend/          Maven multimodule (gateway + 5 servisa)
+backend/          Maven multimodule (eureka + gateway + 5 servisa)
 frontend/         React aplikacija
 scripts/          SQL inicijalizacija baza
 docker-compose.yml
@@ -22,6 +22,7 @@ docker-compose.yml
 
 | Servis               | Port |
 | -------------------- | ---- |
+| eureka-server        | 8761 |
 | api-gateway          | 8080 |
 | user-service         | 8081 |
 | post-service         | 8082 |
