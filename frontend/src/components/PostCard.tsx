@@ -7,14 +7,17 @@ import { formatPostTime } from '../lib/formatTime'
 import type { FeedPostDto } from '../types/api'
 import { Avatar } from './Avatar'
 import { CommentThread } from './CommentThread'
+import { FollowButton } from './FollowButton'
 import { LikeButton } from './LikeButton'
 
 type PostCardProps = {
   post: FeedPostDto
   onDeleted?: (postId: string) => void
+  showFollow?: boolean
+  onAuthorFollowed?: (authorId: string) => void | Promise<void>
 }
 
-export function PostCard({ post, onDeleted }: PostCardProps) {
+export function PostCard({ post, onDeleted, showFollow = false, onAuthorFollowed }: PostCardProps) {
   const { user } = useAuth()
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,6 +63,18 @@ export function PostCard({ post, onDeleted }: PostCardProps) {
           ) : (
             <div className="d-flex align-items-center gap-2 min-w-0">{authorBlock}</div>
           )}
+          {showFollow && !isOwn ? (
+            <div className="flex-shrink-0">
+              <FollowButton
+                userId={post.authorId}
+                following={false}
+                pending={false}
+                onChanged={async () => {
+                  await onAuthorFollowed?.(post.authorId)
+                }}
+              />
+            </div>
+          ) : null}
           <div className="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
             <time className="text-secondary small text-nowrap" dateTime={post.createdAt}>
               {formatPostTime(post.createdAt)}

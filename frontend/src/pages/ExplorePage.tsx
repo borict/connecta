@@ -29,6 +29,10 @@ export function ExplorePage() {
     setPosts((current) => current.filter((post) => post.id !== postIdToRemove))
   }
 
+  function handleAuthorFollowed(authorId: string) {
+    setPosts((current) => current.filter((post) => post.authorId !== authorId))
+  }
+
   return (
     <>
       <h1 className="h4 mb-3">Explore</h1>
@@ -47,7 +51,17 @@ export function ExplorePage() {
               Nothing to discover yet. Search for people or check back when someone new posts.
             </p>
           ) : null}
-          {!error ? posts.map((post) => <PostCard key={post.id} post={post} onDeleted={handleDeleted} />) : null}
+          {!error
+            ? posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onDeleted={handleDeleted}
+                  showFollow
+                  onAuthorFollowed={handleAuthorFollowed}
+                />
+              ))
+            : null}
           {!error ? (
             <InfiniteScrollSentinel
               disabled={!hasMore}
