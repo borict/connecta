@@ -66,13 +66,12 @@ cd connecta
 cp .env.example .env
 ```
 
-U `.env` unesi Azure Service Bus **Primary connection string** (namespace → Shared access policies → RootManageSharedAccessKey).
+U `.env` unesi Azure **Primary connection string** za Service Bus (namespace → Shared access policies → RootManageSharedAccessKey) i, ako koristiš Blob, za Storage account (Access keys).
 
 Potrebne Azure entitete:
 
-- Namespace (npr. `connecta-bus`)
-- Topic: `connecta-events`
-- Subscription: `notification-service`
+- Service Bus: namespace (npr. `connecta-bus`), topic `connecta-events`, subscription `notification-service`
+- Blob Storage (opciono): kontejneri `avatars` i `posts` sa javnim **Blob** čitanjem. Bez `AZURE_STORAGE_CONNECTION_STRING` slike idu na lokalni disk (`CONNECTA_STORAGE_DIR`)
 
 
 
@@ -118,7 +117,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 ## Napomene
 
 - `.env` se ne commituje. Koristi `.env.example` kao šablon.
-- Azure Service Bus i Azure Blob Storage nisu u Docker Compose-u (cloud servisi).
+- Azure Service Bus i Azure Blob Storage nisu u Docker Compose-u (cloud servisi). Prazan `AZURE_STORAGE_CONNECTION_STRING` → lokalne slike na `/media/**`; popunjen → novi upload u Blob (`avatars`, `posts`).
 - Domen odluke (User model, admin, privatni profili, JWT headeri, post slike, notifikacije, poruke): [docs/domain-decisions.md](docs/domain-decisions.md).
 - Follow model (PENDING/ACCEPTED, feed, `USER_FOLLOWED`): [docs/social-follow-model.md](docs/social-follow-model.md).
 - Seed admin (User Service Flyway): username `admin`, password `Admin123!`.
@@ -131,12 +130,14 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 - Swagger (Notification Service): [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html)
 - Gateway **nema** Swagger UI.
 - Faza 1: User Service + Gateway + Swagger.
-- Faza 2: Post Service (CRUD, likes, comments, local post images, User Service enrichment, Azure Service Bus publisher).
+- Faza 2: Post Service (CRUD, likes, comments, post images, User Service enrichment, Azure Service Bus publisher).
 - Faza 3: Social Service (follow/unfollow, private-profile requests, lists, home feed, `USER_FOLLOWED`).
 - Faza 4: Notification Service (REST lista/read/unread-count, Azure consumer na `connecta-events` / `notification-service`, fail-soft publisheri).
 - Faza 5: Message Service (1:1 konverzacije, REST poruke, STOMP `/ws`, `MESSAGE_SENT`).
 - Faza 6: React frontend (`:5173`) kroz Gateway — auth, feed, profil, follow, notifikacije, chat, `/admin`.
 - Faza 7: Zipkin — Micrometer Tracing na Gateway + 5 servisa, UI [http://localhost:9411](http://localhost:9411).
+- Faza 8: Eureka (`:8761`); Gateway `lb://`; Feign po imenu servisa.
+- Faza 9: Azure Blob za profilne i post slike (lokalni disk ako nema connection string).
 
 ### Smoke test (Faza 1)
 
@@ -155,7 +156,7 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 6. Like: `POST .../likes` dva puta → isti `count`; unlike `DELETE .../likes` → 204 i kad nije lajkovano
 7. Comment: `POST .../comments` → list → `DELETE /api/posts/comments/{commentId}` (samo autor komentara)
 8. Delete post: drugi user → 403; autor → 204
-9. Gateway: `http://localhost:8080/api/posts/**` sa Bearer tokenom; slika na `http://localhost:8080/media/posts/...`
+9. Gateway: `http://localhost:8080/api/posts/**` sa Bearer tokenom. Lokalna slika: `http://localhost:8080/media/posts/...`. Sa Blob-om: `imageUrl` je `https://…blob.core.windows.net/posts/…`
 10. Bez JWT-a → 401 `ApiErrorResponse`. Azure eventi (`POST_LIKED` / `POST_COMMENTED`) se proveravaju kroz Notification Service (vidi smoke Faza 4).
 
 ### Smoke test (Faza 3)
@@ -216,5 +217,13 @@ Aplikacija: [http://localhost:5173](http://localhost:5173)
 3. Jedan zahtev kroz Gateway, npr. `POST http://localhost:8080/api/auth/login` ili (sa tokenom) `GET http://localhost:8080/api/feed`
 4. Zipkin UI → **Run Query**. Treba da vidiš servise (`api-gateway`, `user-service`, `social-service`, …). Otvori trace: lanac spanova (Gateway + downstream), ne samo jedan servis
 5. Sampling je `1.0` lokalno (`ZIPKIN_ENDPOINT` default `http://localhost:9411/api/v2/spans`). Ako je lista prazna, app nisu restartovane ili Zipkin nije na `:9411`
+
+### Smoke test (Faza 9)
+
+1. Bez `AZURE_STORAGE_CONNECTION_STRING`: register/update profila ili novi post sa slikom → URL počinje sa `http://localhost:8080/media/…` i slika se otvara kroz Gateway
+2. U Azure portalu: Storage account → kontejneri `avatars` i `posts`, anonymous access level **Blob**
+3. U `.env`: `AZURE_STORAGE_CONNECTION_STRING` (Access keys), `AZURE_STORAGE_CONTAINER_AVATARS=avatars`, `AZURE_STORAGE_CONTAINER_POSTS=posts`
+4. Restartuj **user-service** i **post-service**. Log: `Azure Blob storage enabled for profile pictures` / `post images`. Loš string → warning i lokalni disk
+5. Novi upload: `profilePictureUrl` / `imageUrl` je Blob HTTPS URL (kontejner `avatars` ili `posts`). Stari `/media/**` linkovi i dalje rade
 
 

@@ -12,7 +12,7 @@ Locked for implementation. Private master plan PDF may lag; this file is the rep
 | passwordHash | yes | BCrypt only |
 | displayName | yes | |
 | bio | no | max 100 |
-| profilePictureUrl | no | set only via upload → Azure Blob |
+| profilePictureUrl | no | set only via upload; URL is Azure Blob or local `/media` |
 | dateOfBirth | yes | min age 15 |
 | location | no | free text, e.g. "Novi Sad" |
 | gender | no | MALE, FEMALE, OTHER |
@@ -49,8 +49,7 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 ## Profile picture
 
 - Client uploads multipart file (`multipart/form-data`); no manual URL entry.
-- Now: local filesystem via `ProfilePictureStorage` (`CONNECTA_STORAGE_DIR`), served at `/media/**`.
-- Later: swap implementation for Azure Blob; DB still keeps only `profilePictureUrl`.
+- Storage: see **Image storage** below. User Service uses `ProfilePictureStorage` (Azure Blob container `avatars`, or local `CONNECTA_STORAGE_DIR/profile-pictures/` at `/media/profile-pictures/**`).
 - Register (`POST /api/auth/register`): optional part `profilePicture` + JSON part `data`.
 - Login: `POST /api/auth/login`.
 - Missing picture → FE placeholder / initials.
@@ -58,11 +57,20 @@ Not in MVP: websiteUrl, phone, cover, emailVerified, lastLoginAt, locale, timezo
 ## Post image
 
 - Client uploads multipart file on create (`data` JSON `{ "content" }` + optional `image`); no manual URL entry.
-- Now: local filesystem via `PostImageStorage` (`CONNECTA_STORAGE_DIR/posts/`), served at `/media/posts/**`.
-- Gateway routes `/media/posts/**` to Post Service **before** `/media/**` to User Service.
-- Later: swap implementation for Azure Blob; DB still keeps only `imageUrl`.
+- Storage: see **Image storage** below. Post Service uses `PostImageStorage` (Azure Blob container `posts`, or local `CONNECTA_STORAGE_DIR/posts/` at `/media/posts/**`).
+- Gateway routes `/media/posts/**` to Post Service **before** `/media/**` to User Service (local files only; Blob URLs are absolute HTTPS).
 - One optional image per post; JPEG / PNG / WebP; max 5MB.
 - Missing image → `imageUrl` is null. In Swagger, do not send an empty file part.
+
+## Image storage
+
+- DB stores only the public URL (`profilePictureUrl` / `imageUrl`). No binary in Postgres.
+- If `AZURE_STORAGE_CONNECTION_STRING` is set and the client starts, new uploads go to Azure Blob. Public URL is the blob URL.
+- If the string is empty, or Azure cannot be reached, User/Post Service use the local filesystem (`CONNECTA_STORAGE_DIR`, public base `CONNECTA_STORAGE_PUBLIC_BASE_URL`, default `http://localhost:8080/media`).
+- Containers (create in the Storage account; anonymous **Blob** read for `<img>`):
+  - `avatars` (`AZURE_STORAGE_CONTAINER_AVATARS`) — profile pictures
+  - `posts` (`AZURE_STORAGE_CONTAINER_POSTS`) — post images
+- Existing local `/media/**` URLs stay valid; Gateway still serves them. New Blob uploads do not go through `/media`.
 
 ## Account flags
 
