@@ -7,7 +7,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
-@EnableConfigurationProperties({JwtProperties.class, StorageProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, StorageProperties.class, AzureStorageProperties.class})
 public class AppConfig {
 
     @Bean

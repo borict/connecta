@@ -42,6 +42,9 @@ connecta:
       base-dir: ${CONNECTA_STORAGE_DIR:./uploads}
       # Files are served at /media/**; profile pictures land under /media/profile-pictures/...
       public-base-url: ${CONNECTA_STORAGE_PUBLIC_BASE_URL:http://localhost:8080/media}
+    azure:
+      connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
+      container-avatars: ${AZURE_STORAGE_CONTAINER_AVATARS:avatars}
 
 resilience4j:
   circuitbreaker:
